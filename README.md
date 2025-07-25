@@ -1,61 +1,260 @@
-# `ICPad`
+# ICPad - Internet Computer Development Platform
 
-Welcome to your new `ICPad` project and to the Internet Computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
+A modern, web-based IDE and development platform for building decentralized applications (dApps) on the Internet Computer (IC) blockchain.
 
-To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
+## 🚀 Overview
 
-To learn more before you start working with `ICPad`, see the following documentation available online:
+ICPad is a comprehensive development environment that combines a modern React-based UI with Internet Computer canister deployment capabilities. It provides developers with an intuitive interface for creating, testing, and deploying dApps on the IC network.
 
-- [Quick Start](https://internetcomputer.org/docs/current/developer-docs/setup/deploy-locally)
-- [SDK Developer Tools](https://internetcomputer.org/docs/current/developer-docs/setup/install)
-- [Rust Canister Development Guide](https://internetcomputer.org/docs/current/developer-docs/backend/rust/)
-- [ic-cdk](https://docs.rs/ic-cdk)
-- [ic-cdk-macros](https://docs.rs/ic-cdk-macros)
-- [Candid Introduction](https://internetcomputer.org/docs/current/developer-docs/backend/candid/)
+## ✨ Features
 
-If you want to start working on your project right away, you might want to try the following commands:
+- **Modern Web IDE** - React-based interface with syntax highlighting and real-time editing
+- **Canister Management** - Deploy and manage Internet Computer canisters
+- **Template Marketplace** - Browse and use pre-built canister templates
+- **Multi-Network Support** - Deploy to local, testnet, and mainnet networks
+- **Dark/Light Theme** - Customizable UI themes for better development experience
+- **Real-time Terminal** - Integrated terminal for deployment and debugging
 
-```bash
-cd ICPad/
-dfx help
-dfx canister --help
+## 🏗️ Architecture
+
+### Frontend (React + Vite)
+- **Framework**: React 18 with React Router
+- **Build Tool**: Vite for fast development and building
+- **Styling**: Tailwind CSS with custom theme system
+- **State Management**: React Context for theme management
+
+### Backend (Rust + Internet Computer)
+- **Language**: Rust with IC CDK
+- **Canister Type**: Rust canister for backend logic
+- **Interface**: Candid for type-safe communication
+
+### Project Structure
+```
+ICPad/
+├── src/
+│   ├── ICPad_frontend/          # React frontend application
+│   │   ├── src/
+│   │   │   ├── Pages/           # Main application pages
+│   │   │   ├── components/      # Reusable UI components
+│   │   │   ├── contexts/        # React contexts
+│   │   │   └── utils/           # Utility functions
+│   │   ├── dist/                # Built frontend assets
+│   │   └── package.json         # Frontend dependencies
+│   ├── ICPad_backend/           # Rust backend canister
+│   │   ├── src/
+│   │   │   └── lib.rs           # Main canister logic
+│   │   └── ICPad_backend.did    # Candid interface
+│   └── declarations/            # Generated canister bindings
+├── dfx.json                     # DFX configuration
+├── package.json                 # Root package configuration
+└── Cargo.toml                   # Rust dependencies
 ```
 
-## Running the project locally
+## 🛠️ Prerequisites
 
-If you want to test your project locally, you can use the following commands:
+Before running this project, ensure you have the following installed:
+
+- **Node.js** (>= 16.0.0)
+- **npm** (>= 7.0.0)
+- **Rust** (latest stable)
+- **DFX** (Internet Computer SDK)
+- **Git**
+
+### Installing DFX
 
 ```bash
-# Starts the replica, running in the background
-dfx start --background
+# Install DFX
+sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
 
-# Deploys your canisters to the replica and generates your candid interface
-dfx deploy
+# Verify installation
+dfx --version
 ```
 
-Once the job completes, your application will be available at `http://localhost:4943?canisterId={asset_canister_id}`.
+## 🚀 Quick Start
 
-If you have made changes to your backend canister, you can generate a new candid interface with
+### 1. Clone the Repository
 
 ```bash
-npm run generate
+git clone <repository-url>
+cd ICPad
 ```
 
-at any time. This is recommended before starting the frontend development server, and will be run automatically any time you run `dfx deploy`.
-
-If you are making frontend changes, you can start a development server with
+### 2. Install Dependencies
 
 ```bash
+# Install root dependencies
+npm install
+
+# Install frontend dependencies
+cd src/ICPad_frontend
+npm install
+cd ../..
+```
+
+### 3. Start the Local Internet Computer Network
+
+```bash
+# Start local IC network in background
+dfx start --clean --background
+```
+
+### 4. Deploy the Backend Canister
+
+```bash
+# Deploy the backend canister
+dfx deploy ICPad_backend
+```
+
+### 5. Start the Frontend Development Server
+
+```bash
+# Start the frontend (from project root)
+cd src/ICPad_frontend
 npm start
 ```
 
-Which will start a server at `http://localhost:8080`, proxying API requests to the replica at port 4943.
+The application will be available at:
+- **Frontend**: http://localhost:3000 (or 3001 if 3000 is busy)
+- **Canister Interface**: http://127.0.0.1:4943/?canisterId=[CANISTER_ID]
 
-### Note on frontend environment variables
+## 📱 Application Pages
 
-If you are hosting frontend code somewhere without using DFX, you may need to make one of the following adjustments to ensure your project does not fetch the root key in production:
+### Landing Page
+Welcome page with project overview and quick start guide.
 
-- set`DFX_NETWORK` to `ic` if you are using Webpack
-- use your own preferred method to replace `process.env.DFX_NETWORK` in the autogenerated declarations
-  - Setting `canisters -> {asset_canister_id} -> declarations -> env_override to a string` in `dfx.json` will replace `process.env.DFX_NETWORK` with the string in the autogenerated declarations
-- Write your own `createActor` constructor
+### Dashboard
+Central hub for managing your dApp projects and deployed canisters.
+
+### IDE
+Integrated development environment with:
+- Code editor with syntax highlighting
+- File explorer
+- Integrated terminal
+- Real-time deployment capabilities
+
+### Marketplace
+Browse and download pre-built canister templates and components.
+
+### Deploy
+Deploy your dApps to different networks:
+- Local development network
+- IC testnet
+- IC mainnet
+
+### Settings
+Configure your development environment and preferences.
+
+## 🔧 Development
+
+### Frontend Development
+
+```bash
+cd src/ICPad_frontend
+
+# Start development server
+npm start
+
+# Build for production
+npm run build
+
+# Format code
+npm run format
+```
+
+### Backend Development
+
+```bash
+# Build the Rust canister
+dfx build ICPad_backend
+
+# Deploy to local network
+dfx deploy ICPad_backend
+
+# Deploy to mainnet
+dfx deploy --network ic ICPad_backend
+```
+
+### Adding New Features
+
+1. **Frontend Components**: Add new components in `src/ICPad_frontend/src/components/`
+2. **Pages**: Create new pages in `src/ICPad_frontend/src/Pages/`
+3. **Backend Functions**: Add new functions in `src/ICPad_backend/src/lib.rs`
+4. **Canister Interface**: Update `src/ICPad_backend/ICPad_backend.did`
+
+## 🌐 Network Configuration
+
+### Local Development
+- Network: `local`
+- URL: `http://localhost:4943`
+
+### Testnet
+- Network: `ic_testnet`
+- URL: `https://ic0.testnet.app`
+
+### Mainnet
+- Network: `ic`
+- URL: `https://ic0.app`
+
+## 🔗 Canister Integration
+
+The project includes generated TypeScript/JavaScript bindings for the backend canister:
+
+```javascript
+import { createActor, ICPad_backend } from 'declarations/ICPad_backend';
+
+// Create actor instance
+const actor = createActor(process.env.CANISTER_ID_ICPAD_BACKEND);
+
+// Call canister functions
+const greeting = await actor.greet("World");
+```
+
+## 🚀 Deployment
+
+### Deploy to Mainnet
+
+```bash
+# Deploy backend canister to mainnet
+dfx deploy --network ic ICPad_backend
+
+# Deploy frontend canister to mainnet
+dfx deploy --network ic ICPad_frontend
+```
+
+### Environment Variables
+
+The application uses environment variables for configuration:
+
+- `CANISTER_ID_ICPAD_BACKEND`: Backend canister ID
+- `DFX_NETWORK`: Target network (local, ic_testnet, ic)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Documentation**: Check the project wiki for detailed guides
+- **Issues**: Report bugs and request features via GitHub Issues
+- **Discussions**: Join community discussions on GitHub Discussions
+
+## 🔮 Roadmap
+
+- [ ] Real-time collaboration features
+- [ ] Advanced debugging tools
+- [ ] Canister performance monitoring
+- [ ] Template marketplace integration
+- [ ] Multi-language support (Motoko, Rust, TypeScript)
+- [ ] CI/CD pipeline integration
+
+---
+
+**Built with ❤️ for the Internet Computer ecosystem**
