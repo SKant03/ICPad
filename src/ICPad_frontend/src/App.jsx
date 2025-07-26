@@ -5,6 +5,7 @@ import { Routes, Route } from 'react-router-dom';
 
 // Import Contexts
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { IDEProvider } from './contexts/IDEContext';
 
 // Import Components
 import Navbar from './components/Navbar'; // Navbar is rendered globally by App.jsx
@@ -50,7 +51,9 @@ const App = () => {
 export default function ICPadApp() {
   return (
     <ThemeProvider>
-      <App />
+      <IDEProvider>
+        <App />
+      </IDEProvider>
     </ThemeProvider>
   );
 }

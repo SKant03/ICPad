@@ -3,7 +3,6 @@ import { fileURLToPath, URL } from 'url';
 import environment from 'vite-plugin-environment';
 import dotenv from 'dotenv';
 import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
 
 dotenv.config({ path: '../../.env' });
 
@@ -31,7 +30,6 @@ export default defineConfig({
     environment("all", { prefix: "CANISTER_" }),
     environment("all", { prefix: "DFX_" }),
     react(),
-    tailwindcss(),
   ],
   resolve: {
     alias: [
