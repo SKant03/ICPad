@@ -1,0 +1,27 @@
+{
+  "canisters": {
+    "ICPad_backend": {
+      "candid": "src/ICPad_backend/ICPad_backend.did",
+      "package": "ICPad_backend",
+      "type": "rust"
+    },
+    "ICPad_frontend": {
+      "dependencies": [
+        "ICPad_backend"
+      ],
+      "source": [
+        "src/ICPad_frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "ICPad_frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
