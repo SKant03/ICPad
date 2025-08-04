@@ -35,7 +35,6 @@ type Template = record {
     created_at: nat64;
     updated_at: nat64;
 };
-
 service : {
     "greet": (text) -> (text) query;
     "create_project": (text, text, text) -> (text);
