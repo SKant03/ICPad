@@ -22,6 +22,19 @@ type DeployResult = record {
     output: text;
 };
 
+type Template = record {
+    id: text;
+    name: text;
+    description: text;
+    category: text;
+    language: text;
+    code: text;
+    author: text;
+    downloads: nat32;
+    rating: float32;
+    created_at: nat64;
+    updated_at: nat64;
+};
 service : {
     "greet": (text) -> (text) query;
     "create_project": (text, text, text) -> (text);
@@ -31,4 +44,10 @@ service : {
     "compile_project": (text) -> (CompileResult);
     "deploy_project": (text) -> (DeployResult);
     "test_project": (text, text) -> (text);
+    "list_templates": () -> (vec Template) query;
+    "get_template": (text) -> (opt Template) query;
+    "create_template": (text, text, text, text, text) -> (text);
+    "install_template": (text) -> (text);
+    "rate_template": (text, float32) -> (bool);
+    "download_template": (text) -> (bool);
 }
