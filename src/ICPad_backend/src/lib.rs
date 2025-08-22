@@ -1,3 +1,13 @@
+
+use candid::CandidType;
+use ic_cdk_macros::update;
+use ic_cdk::management_canister::http_request;
+use ic_management_canister_types::{HttpRequestArgs, HttpHeader, HttpMethod, HttpRequestResult};
+use serde::Deserialize;
+
+use num_traits::ToPrimitive;
+use std::time::Duration;
+use ic_cdk_timers::set_timer;
 use candid::{CandidType, Deserialize};
 use std::collections::HashMap;
 use std::collections::BTreeMap;
@@ -21,13 +31,30 @@ pub struct CompileResult {
     pub errors: Vec<String>,
 }
 
+
 #[derive(CandidType, Deserialize)]
-pub struct DeployResult {
-    pub success: bool,
-    pub canister_id: Option<String>,
-    pub url: Option<String>,
-    pub output: String,
+struct SessionResponse {
+    container_id: String,
+    editor_url: String,
 }
+
+#[update]
+async fn start_docker_session(user_id: String) -> Result<String, String> {
+    let payload = format!(
+        r#"{{"project_id":"test_project","user_id":"{}"}}"#,
+        user_id
+    );
+
+    let req = HttpRequestArgs {
+        url: "https://e2bd84efdf04.ngrok-free.app/start".to_string(),
+        max_response_bytes: Some(2000),
+        method: HttpMethod::POST,
+        headers: vec![HttpHeader {
+            name: "Content-Type".to_string(),
+            value: "application/json".to_string(),
+        }],
+        body: Some(payload.into_bytes()),
+        transform: None,
 
 #[derive(CandidType, Deserialize, Clone)]
 pub struct Template {
@@ -173,137 +200,61 @@ fn create_project(name: String, language: String, initial_code: String) -> Strin
         created_at: now,
         updated_at: now,
     };
-    
-    get_projects().insert(project_id.clone(), project);
-    project_id
-}
 
-#[ic_cdk::query]
-fn get_project(project_id: String) -> Option<Project> {
-    get_projects().get(&project_id).cloned()
-}
+    match http_request(&req).await {
+        Ok(HttpRequestResult { status, body, .. }) => {
+            if status.0.to_u64().unwrap_or(0) != 200 {
+                return Err(format!("Non-200 status code: {}", status));
+            }
 
-#[ic_cdk::query]
-fn list_projects() -> Vec<Project> {
-    get_projects().values().cloned().collect()
-}
+            let body_str = String::from_utf8_lossy(&body);
+            let session: SessionResponse =
+                serde_json::from_str(&body_str).map_err(|e| format!("JSON parse error: {}", e))?;
 
-#[ic_cdk::update]
-fn update_project_code(project_id: String, code: String) -> bool {
-    if let Some(project) = get_projects().get_mut(&project_id) {
-        project.code = code;
-        project.updated_at = ic_cdk::api::time();
-        project.status = "modified".to_string();
-        true
-    } else {
-        false
+            let container_id = session.container_id.clone();
+
+            // Schedule auto-stop after 5 minutes
+            set_timer(Duration::from_secs(5 * 60), move || {
+                ic_cdk::spawn(async move {
+                    let _ = stop_docker_session(container_id.clone()).await;
+                });
+            });
+
+            Ok(session.editor_url)
+        }
+        Err(err) => Err(format!("HTTP call failed: {:?}", err)),
     }
 }
 
-#[ic_cdk::update]
-fn compile_project(project_id: String) -> CompileResult {
-    if let Some(project) = get_projects().get(&project_id) {
-        // Simulate compilation based on language
-        match project.language.as_str() {
-            "motoko" => {
-                // Basic Motoko syntax validation
-                if project.code.contains("actor") && project.code.contains("func") {
-                    CompileResult {
-                        success: true,
-                        output: "Compilation successful! No errors found.".to_string(),
-                        errors: vec![],
-                    }
-                } else {
-                    CompileResult {
-                        success: false,
-                        output: "Compilation failed!".to_string(),
-                        errors: vec!["Missing 'actor' declaration".to_string(), "Missing function declarations".to_string()],
-                    }
-                }
+#[update]
+async fn stop_docker_session(container_id: String) -> Result<String, String> {
+    let payload = format!(r#"{{"container_id":"{}"}}"#, container_id);
+
+    let req = HttpRequestArgs {
+        url: "https://e2bd84efdf04.ngrok-free.app/stop".to_string(),
+        max_response_bytes: Some(2000),
+        method: HttpMethod::POST,
+        headers: vec![HttpHeader {
+            name: "Content-Type".to_string(),
+            value: "application/json".to_string(),
+        }],
+        body: Some(payload.into_bytes()),
+        transform: None,
+    };
+
+    match http_request(&req).await {
+        Ok(HttpRequestResult { status, body, .. }) => {
+            if status.0.to_u64().unwrap_or(0) != 200 {
+                return Err(format!("Non-200 status code: {}", status));
             }
-            "rust" => {
-                // Basic Rust syntax validation
-                if project.code.contains("fn") && project.code.contains("ic_cdk") {
-                    CompileResult {
-                        success: true,
-                        output: "Compilation successful! No errors found.".to_string(),
-                        errors: vec![],
-                    }
-                } else {
-                    CompileResult {
-                        success: false,
-                        output: "Compilation failed!".to_string(),
-                        errors: vec!["Missing function declarations".to_string(), "Missing ic_cdk imports".to_string()],
-                    }
-                }
-            }
-            _ => CompileResult {
-                success: false,
-                output: "Unsupported language".to_string(),
-                errors: vec!["Language not supported".to_string()],
-            }
+            Ok("Container stopped successfully".to_string())
         }
-    } else {
-        CompileResult {
-            success: false,
-            output: "Project not found".to_string(),
-            errors: vec!["Project not found".to_string()],
-        }
+        Err(err) => Err(format!("HTTP call failed: {:?}", err)),
     }
 }
 
-#[ic_cdk::update]
-fn deploy_project(project_id: String) -> DeployResult {
-    if let Some(project) = get_projects().get_mut(&project_id) {
-        // Simulate deployment
-        let canister_id = format!("{}-{}", project.language, ic_cdk::api::time());
-        let url = format!("https://{}.ic0.app", canister_id);
-        
-        project.canister_id = Some(canister_id.clone());
-        project.status = "deployed".to_string();
-        project.updated_at = ic_cdk::api::time();
-        
-        DeployResult {
-            success: true,
-            canister_id: Some(canister_id),
-            url: Some(url),
-            output: format!("Successfully deployed {} to the Internet Computer!", project.name),
-        }
-    } else {
-        DeployResult {
-            success: false,
-            canister_id: None,
-            url: None,
-            output: "Project not found".to_string(),
-        }
-    }
-}
 
-#[ic_cdk::update]
-fn test_project(project_id: String, test_input: String) -> String {
-    if let Some(project) = get_projects().get(&project_id) {
-        // Simulate testing based on language
-        match project.language.as_str() {
-            "motoko" => {
-                if project.code.contains("greet") {
-                    format!("Test result: Hello, {}!", test_input)
-                } else {
-                    "Test failed: No greet function found".to_string()
-                }
-            }
-            "rust" => {
-                if project.code.contains("greet") {
-                    format!("Test result: Hello, {}!", test_input)
-                } else {
-                    "Test failed: No greet function found".to_string()
-                }
-            }
-            _ => "Test failed: Unsupported language".to_string()
-        }
-    } else {
-        "Test failed: Project not found".to_string()
-    }
-}
+ic_cdk::export_candid!();
 
 // Marketplace functions
 #[ic_cdk::query]
@@ -401,3 +352,4 @@ fn download_template(template_id: String) -> bool {
         false
     }
 }
+
