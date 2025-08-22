@@ -159,9 +159,12 @@ export const IDEProvider = ({ children }) => {
           addTerminalOutput(compileResult.output);
         } else {
           addTerminalOutput('❌ Compilation failed!');
-          compileResult.errors.forEach(error => {
-            addTerminalOutput(`  - ${error}`);
-          });
+          addTerminalOutput(compileResult.output);
+          if (compileResult.errors && compileResult.errors.length > 0) {
+            compileResult.errors.forEach(error => {
+              addTerminalOutput(`  - ${error}`);
+            });
+          }
         }
       } else {
         addTerminalOutput('❌ Failed to compile: ' + result.error);
@@ -188,8 +191,12 @@ export const IDEProvider = ({ children }) => {
         const deployResult = result.result;
         if (deployResult.success) {
           addTerminalOutput('✅ Deployment successful!');
-          addTerminalOutput(`🌐 Canister ID: ${deployResult.canister_id}`);
-          addTerminalOutput(`🔗 URL: ${deployResult.url}`);
+          if (deployResult.canister_id) {
+            addTerminalOutput(`🌐 Canister ID: ${deployResult.canister_id}`);
+          }
+          if (deployResult.url) {
+            addTerminalOutput(`🔗 URL: ${deployResult.url}`);
+          }
           addTerminalOutput(deployResult.output);
           
           // Update current project with deployment info
@@ -219,7 +226,7 @@ export const IDEProvider = ({ children }) => {
     try {
       const result = await testProject(currentProject.id, testInput);
       if (result.success) {
-        addTerminalOutput(`✅ Test result: ${result.result}`);
+        addTerminalOutput(`✅ ${result.result}`);
       } else {
         addTerminalOutput('❌ Test failed: ' + result.error);
       }

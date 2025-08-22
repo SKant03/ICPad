@@ -17,9 +17,12 @@ export const initializeActor = async () => {
     // For local development, we need to fetch the root key
     await agent.fetchRootKey().catch(console.error);
     
+    // Use the current backend canister ID
+    const canisterId = 'uxrrr-q7777-77774-qaaaq-cai';
+    
     actor = Actor.createActor(idlFactory, {
       agent,
-      canisterId: 'ufxgi-4p777-77774-qaadq-cai', // Local backend canister ID
+      canisterId: canisterId,
     });
   }
   return actor;
@@ -108,9 +111,76 @@ export const checkCanisterConnection = async () => {
   try {
     const actor = await initializeActor();
     const result = await actor.greet('test');
-    return { success: true, connected: result.includes('Hello') };
+    return { connected: true, success: true };
   } catch (error) {
     console.error('Error checking canister connection:', error);
-    return { success: false, connected: false, error: error.message };
+    return { connected: false, success: false, error: error.message };
+  }
+};
+
+// Marketplace functions
+export const listTemplates = async () => {
+  try {
+    const actor = await initializeActor();
+    const templates = await actor.list_templates();
+    return { success: true, templates };
+  } catch (error) {
+    console.error('Error listing templates:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const getTemplate = async (templateId) => {
+  try {
+    const actor = await initializeActor();
+    const template = await actor.get_template(templateId);
+    return { success: true, template };
+  } catch (error) {
+    console.error('Error getting template:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const createTemplate = async (name, description, category, language, code) => {
+  try {
+    const actor = await initializeActor();
+    const templateId = await actor.create_template(name, description, category, language, code);
+    return { success: true, templateId };
+  } catch (error) {
+    console.error('Error creating template:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const installTemplate = async (templateId) => {
+  try {
+    const actor = await initializeActor();
+    const projectId = await actor.install_template(templateId);
+    return { success: true, projectId };
+  } catch (error) {
+    console.error('Error installing template:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const rateTemplate = async (templateId, rating) => {
+  try {
+    const actor = await initializeActor();
+    const success = await actor.rate_template(templateId, rating);
+    return { success };
+  } catch (error) {
+    console.error('Error rating template:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const downloadTemplate = async (templateId) => {
+  try {
+    const actor = await initializeActor();
+    const success = await actor.download_template(templateId);
+    return { success };
+  } catch (error) {
+    console.error('Error downloading template:', error);
+    return { success: false, error: error.message };
   }
 }; 

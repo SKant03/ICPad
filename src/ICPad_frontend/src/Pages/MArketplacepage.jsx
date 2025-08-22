@@ -1,10 +1,10 @@
 // src/pages/MarketplacePage.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { Search, Filter } from '../utils/Icons.jsx';
-import { mockCanisters } from '../utils/mockData';
+import { listTemplates, installTemplate, rateTemplate, downloadTemplate } from '../utils/canisterService';
 
 const MarketplacePage = () => {
   const { isDarkMode } = useTheme();
@@ -14,11 +14,80 @@ const MarketplacePage = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All');
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const filteredCanisters = mockCanisters.filter(canister => {
-    const matchesSearch = canister.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          canister.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'All' || canister.type === filterType;
+  // Load templates from canister
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  const loadTemplates = async () => {
+    setLoading(true);
+    try {
+      const result = await listTemplates();
+      if (result.success) {
+        setTemplates(result.templates || []);
+      } else {
+        setError('Failed to load templates: ' + result.error);
+      }
+    } catch (error) {
+      setError('Error loading templates: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInstallTemplate = async (templateId) => {
+    try {
+      const result = await installTemplate(templateId);
+      if (result.success) {
+        alert(`Template installed successfully! New project ID: ${result.projectId}`);
+        // Refresh templates to update download count
+        await loadTemplates();
+      } else {
+        alert('Failed to install template: ' + result.error);
+      }
+    } catch (error) {
+      alert('Error installing template: ' + error.message);
+    }
+  };
+
+  const handleRateTemplate = async (templateId, rating) => {
+    try {
+      const result = await rateTemplate(templateId, rating);
+      if (result.success) {
+        alert('Rating submitted successfully!');
+        // Refresh templates to update rating
+        await loadTemplates();
+      } else {
+        alert('Failed to submit rating: ' + result.error);
+      }
+    } catch (error) {
+      alert('Error submitting rating: ' + error.message);
+    }
+  };
+
+  const handleDownloadTemplate = async (templateId) => {
+    try {
+      const result = await downloadTemplate(templateId);
+      if (result.success) {
+        alert('Template downloaded successfully!');
+        // Refresh templates to update download count
+        await loadTemplates();
+      } else {
+        alert('Failed to download template: ' + result.error);
+      }
+    } catch (error) {
+      alert('Error downloading template: ' + error.message);
+    }
+  };
+
+  const filteredTemplates = templates.filter(template => {
+    const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          template.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'All' || template.category === filterType;
     return matchesSearch && matchesType;
   });
 
@@ -51,26 +120,68 @@ const MarketplacePage = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCanisters.length > 0 ? (
-          filteredCanisters.map(canister => (
-            <Card key={canister.id} className="flex flex-col justify-between">
-              <div>
-                <h3 className="text-xl font-semibold mb-2">{canister.name}</h3>
-                <p className="text-sm opacity-80 mb-2">Type: <span className="font-medium text-blue-400">{canister.type}</span></p>
-                <p className="text-sm opacity-70 mb-3">{canister.description}</p>
-                <p className="text-xs opacity-60">Author: {canister.author} | Downloads: {canister.downloads} | Rating: {canister.rating} ★</p>
-              </div>
-              <div className="mt-4 flex space-x-2">
-                <Button variant="primary" className="text-sm">Use Template</Button>
-                <Button variant="secondary" className="text-sm">View Details</Button>
-              </div>
-            </Card>
-          ))
-        ) : (
-          <p className={`${textColor} opacity-70 text-center col-span-full py-10`}>No canisters found matching your criteria. Try adjusting your search or filters.</p>
-        )}
-      </div>
+      {loading ? (
+        <div className={`${textColor} text-center py-10`}>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          Loading templates...
+        </div>
+      ) : error ? (
+        <div className={`${textColor} text-center py-10`}>
+          <p className="text-red-400 mb-4">{error}</p>
+          <Button variant="primary" onClick={loadTemplates}>Retry</Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredTemplates.length > 0 ? (
+            filteredTemplates.map(template => (
+              <Card key={template.id} className="flex flex-col justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">{template.name}</h3>
+                  <p className="text-sm opacity-80 mb-2">
+                    Category: <span className="font-medium text-blue-400">{template.category}</span> | 
+                    Language: <span className="font-medium text-green-400">{template.language}</span>
+                  </p>
+                  <p className="text-sm opacity-70 mb-3">{template.description}</p>
+                  <p className="text-xs opacity-60">
+                    Author: {template.author} | Downloads: {template.downloads} | Rating: {template.rating.toFixed(1)} ★
+                  </p>
+                </div>
+                <div className="mt-4 flex space-x-2">
+                  <Button 
+                    variant="primary" 
+                    className="text-sm"
+                    onClick={() => handleInstallTemplate(template.id)}
+                  >
+                    Install Template
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    className="text-sm"
+                    onClick={() => handleDownloadTemplate(template.id)}
+                  >
+                    Download
+                  </Button>
+                </div>
+                <div className="mt-2 flex justify-center space-x-1">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      onClick={() => handleRateTemplate(template.id, star)}
+                      className="text-yellow-400 hover:text-yellow-300 text-sm"
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            ))
+          ) : (
+            <p className={`${textColor} opacity-70 text-center col-span-full py-10`}>
+              No templates found matching your criteria. Try adjusting your search or filters.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

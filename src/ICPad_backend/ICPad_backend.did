@@ -1,5 +1,58 @@
+
 type Result = variant { Ok : text; Err : text };
 service : {
   start_docker_session : (text) -> (Result);
   stop_docker_session : (text) -> (Result);
+type Project = record {
+    id: text;
+    name: text;
+    language: text;
+    code: text;
+    status: text;
+    canister_id: opt text;
+    created_at: nat64;
+    updated_at: nat64;
+};
+
+type CompileResult = record {
+    success: bool;
+    output: text;
+    errors: vec text;
+};
+
+type DeployResult = record {
+    success: bool;
+    canister_id: opt text;
+    url: opt text;
+    output: text;
+};
+
+type Template = record {
+    id: text;
+    name: text;
+    description: text;
+    category: text;
+    language: text;
+    code: text;
+    author: text;
+    downloads: nat32;
+    rating: float32;
+    created_at: nat64;
+    updated_at: nat64;
+};
+service : {
+    "greet": (text) -> (text) query;
+    "create_project": (text, text, text) -> (text);
+    "get_project": (text) -> (opt Project) query;
+    "list_projects": () -> (vec Project) query;
+    "update_project_code": (text, text) -> (bool);
+    "compile_project": (text) -> (CompileResult);
+    "deploy_project": (text) -> (DeployResult);
+    "test_project": (text, text) -> (text);
+    "list_templates": () -> (vec Template) query;
+    "get_template": (text) -> (opt Template) query;
+    "create_template": (text, text, text, text, text) -> (text);
+    "install_template": (text) -> (text);
+    "rate_template": (text, float32) -> (bool);
+    "download_template": (text) -> (bool);
 }
