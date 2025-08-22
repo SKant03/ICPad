@@ -21,7 +21,7 @@ async fn start_docker_session(user_id: String) -> Result<String, String> {
     );
 
     let req = HttpRequestArgs {
-        url: "https://07b81bcb0b42.ngrok-free.app/start".to_string(),
+        url: "https://e2bd84efdf04.ngrok-free.app/start".to_string(),
         max_response_bytes: Some(2000),
         method: HttpMethod::POST,
         headers: vec![HttpHeader {
@@ -62,7 +62,7 @@ async fn stop_docker_session(container_id: String) -> Result<String, String> {
     let payload = format!(r#"{{"container_id":"{}"}}"#, container_id);
 
     let req = HttpRequestArgs {
-        url: "https://07b81bcb0b42.ngrok-free.app/stop".to_string(),
+        url: "https://e2bd84efdf04.ngrok-free.app/stop".to_string(),
         max_response_bytes: Some(2000),
         method: HttpMethod::POST,
         headers: vec![HttpHeader {
