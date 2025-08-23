@@ -1,0 +1,18 @@
+type Template = record {
+  id : text;
+  updated_at : nat64;
+  code : text;
+  name : text;
+  description : text;
+  created_at : nat64;
+  author : text;
+  language : text;
+  category : text;
+  rating : float32;
+  downloads : nat32;
+};
+service : {
+  create_template : (text, text, text, text, text, text) -> (text);
+  list_templates : () -> (vec Template) query;
+  rate_template : (text, float32) -> (bool);
+}

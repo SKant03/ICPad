@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 use candid::CandidType;
 use ic_cdk_macros::update;
@@ -23,14 +24,24 @@ pub struct Project {
     pub created_at: u64,
     pub updated_at: u64,
 }
+=======
+use candid::CandidType;
+use ic_cdk::update;
+use ic_cdk::management_canister::http_request;
+use ic_management_canister_types::{HttpRequestArgs, HttpHeader, HttpMethod, HttpRequestResult};
+use serde::Deserialize;
+use num_traits::ToPrimitive;
+use std::time::Duration;
+use ic_cdk_timers::set_timer;
+>>>>>>> ab3e637 (added user canister marketplace canister and a bit of ui changes)
 
 #[derive(CandidType, Deserialize)]
-pub struct CompileResult {
-    pub success: bool,
-    pub output: String,
-    pub errors: Vec<String>,
+struct SessionResponse {
+    container_id: String,
+    editor_url: String,
 }
 
+<<<<<<< HEAD
 
 #[derive(CandidType, Deserialize)]
 struct SessionResponse {
@@ -45,6 +56,15 @@ async fn start_docker_session(user_id: String) -> Result<String, String> {
         user_id
     );
 
+=======
+#[update]
+async fn start_docker_session(user_id: String) -> Result<String, String> {
+    let payload = format!(
+        r#"{{"project_id":"test_project","user_id":"{}"}}"#,
+        user_id
+    );
+
+>>>>>>> ab3e637 (added user canister marketplace canister and a bit of ui changes)
     let req = HttpRequestArgs {
         url: "https://e2bd84efdf04.ngrok-free.app/start".to_string(),
         max_response_bytes: Some(2000),
@@ -55,6 +75,7 @@ async fn start_docker_session(user_id: String) -> Result<String, String> {
         }],
         body: Some(payload.into_bytes()),
         transform: None,
+<<<<<<< HEAD
 
 #[derive(CandidType, Deserialize, Clone)]
 pub struct Template {
@@ -199,6 +220,8 @@ fn create_project(name: String, language: String, initial_code: String) -> Strin
         canister_id: None,
         created_at: now,
         updated_at: now,
+=======
+>>>>>>> ab3e637 (added user canister marketplace canister and a bit of ui changes)
     };
 
     match http_request(&req).await {
@@ -229,6 +252,7 @@ fn create_project(name: String, language: String, initial_code: String) -> Strin
 #[update]
 async fn stop_docker_session(container_id: String) -> Result<String, String> {
     let payload = format!(r#"{{"container_id":"{}"}}"#, container_id);
+<<<<<<< HEAD
 
     let req = HttpRequestArgs {
         url: "https://e2bd84efdf04.ngrok-free.app/stop".to_string(),
@@ -284,44 +308,33 @@ fn create_template(name: String, description: String, category: String, language
         rating: 0.0,
         created_at: now,
         updated_at: now,
-    };
-    
-    get_templates().insert(template_id.clone(), template);
-    template_id
-}
+=======
 
-#[ic_cdk::update]
-fn install_template(template_id: String) -> String {
-    if let Some(template) = get_templates().get(&template_id) {
-        // Create a new project from the template
-        let project_id = format!("proj_{}", ic_cdk::api::time());
-        let now = ic_cdk::api::time();
-        
-        let project = Project {
-            id: project_id.clone(),
-            name: format!("{} (from template)", template.name),
-            language: template.language.clone(),
-            code: template.code.clone(),
-            status: "created".to_string(),
-            canister_id: None,
-            created_at: now,
-            updated_at: now,
-        };
-        
-        get_projects().insert(project_id.clone(), project);
-        
-        // Increment download count
-        if let Some(template_mut) = get_templates().get_mut(&template_id) {
-            template_mut.downloads += 1;
-            template_mut.updated_at = now;
+    let req = HttpRequestArgs {
+        url: "https://e2bd84efdf04.ngrok-free.app/stop".to_string(),
+        max_response_bytes: Some(2000),
+        method: HttpMethod::POST,
+        headers: vec![HttpHeader {
+            name: "Content-Type".to_string(),
+            value: "application/json".to_string(),
+        }],
+        body: Some(payload.into_bytes()),
+        transform: None,
+>>>>>>> ab3e637 (added user canister marketplace canister and a bit of ui changes)
+    };
+
+    match http_request(&req).await {
+        Ok(HttpRequestResult { status, body, .. }) => {
+            if status.0.to_u64().unwrap_or(0) != 200 {
+                return Err(format!("Non-200 status code: {}", status));
+            }
+            Ok("Container stopped successfully".to_string())
         }
-        
-        project_id
-    } else {
-        "Template not found".to_string()
+        Err(err) => Err(format!("HTTP call failed: {:?}", err)),
     }
 }
 
+<<<<<<< HEAD
 #[ic_cdk::update]
 fn rate_template(template_id: String, rating: f32) -> bool {
     if let Some(template) = get_templates().get_mut(&template_id) {
@@ -353,3 +366,6 @@ fn download_template(template_id: String) -> bool {
     }
 }
 
+=======
+ic_cdk::export_candid!();
+>>>>>>> ab3e637 (added user canister marketplace canister and a bit of ui changes)

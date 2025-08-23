@@ -1,0 +1,14 @@
+[package]
+name = "ICPad_user"
+version = "0.1.0"
+edition = "2024"
+
+
+[lib]
+crate-type = ["cdylib"]  
+
+[dependencies]
+candid = "0.10.17"
+ic-cdk = "0.18.7"
+ic-cdk-macros = "0.18.7"
+serde = "1.0.219"

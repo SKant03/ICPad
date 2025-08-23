@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 type Result = variant { Ok : text; Err : text };
 service : {
@@ -40,19 +41,10 @@ type Template = record {
     created_at: nat64;
     updated_at: nat64;
 };
+=======
+type Result = variant { Ok : text; Err : text };
+>>>>>>> ab3e637 (added user canister marketplace canister and a bit of ui changes)
 service : {
-    "greet": (text) -> (text) query;
-    "create_project": (text, text, text) -> (text);
-    "get_project": (text) -> (opt Project) query;
-    "list_projects": () -> (vec Project) query;
-    "update_project_code": (text, text) -> (bool);
-    "compile_project": (text) -> (CompileResult);
-    "deploy_project": (text) -> (DeployResult);
-    "test_project": (text, text) -> (text);
-    "list_templates": () -> (vec Template) query;
-    "get_template": (text) -> (opt Template) query;
-    "create_template": (text, text, text, text, text) -> (text);
-    "install_template": (text) -> (text);
-    "rate_template": (text, float32) -> (bool);
-    "download_template": (text) -> (bool);
+  start_docker_session : (text) -> (Result);
+  stop_docker_session : (text) -> (Result);
 }

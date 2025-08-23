@@ -1,0 +1,11 @@
+type User = record {
+  id : principal;
+  bio : opt text;
+  username : text;
+  joined_at : nat64;
+};
+service : {
+  get_user : (principal) -> (opt User) query;
+  list_users : () -> (vec User) query;
+  register_user : (principal, text, opt text) -> (bool);
+}

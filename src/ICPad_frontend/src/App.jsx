@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-// Removed 'HashRouter as Router' from import.
-// We only need Routes and Route, as the Router is provided externally.
 import { Routes, Route } from 'react-router-dom';
 
 // Import Contexts

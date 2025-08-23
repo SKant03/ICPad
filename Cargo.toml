@@ -1,5 +1,5 @@
 [workspace]
 members = [
     "src/ICPad_backend"
-]
+, "src/ICPad_marketplace", "src/ICPad_user"]
 resolver = "2"
