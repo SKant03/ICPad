@@ -1,49 +1,4 @@
-<<<<<<< HEAD
-
 type Result = variant { Ok : text; Err : text };
-service : {
-  start_docker_session : (text) -> (Result);
-  stop_docker_session : (text) -> (Result);
-type Project = record {
-    id: text;
-    name: text;
-    language: text;
-    code: text;
-    status: text;
-    canister_id: opt text;
-    created_at: nat64;
-    updated_at: nat64;
-};
-
-type CompileResult = record {
-    success: bool;
-    output: text;
-    errors: vec text;
-};
-
-type DeployResult = record {
-    success: bool;
-    canister_id: opt text;
-    url: opt text;
-    output: text;
-};
-
-type Template = record {
-    id: text;
-    name: text;
-    description: text;
-    category: text;
-    language: text;
-    code: text;
-    author: text;
-    downloads: nat32;
-    rating: float32;
-    created_at: nat64;
-    updated_at: nat64;
-};
-=======
-type Result = variant { Ok : text; Err : text };
->>>>>>> ab3e637 (added user canister marketplace canister and a bit of ui changes)
 service : {
   start_docker_session : (text) -> (Result);
   stop_docker_session : (text) -> (Result);
