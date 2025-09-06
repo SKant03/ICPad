@@ -17,7 +17,7 @@ export const initializeMarketplaceActor = async () => {
     await marketplaceAgent.fetchRootKey().catch(console.error);
     
     // Use the marketplace canister ID
-    const canisterId = 'umunu-kh777-77774-qaaca-cai';
+    const canisterId = 'uzt4z-lp777-77774-qaabq-cai';
     
     marketplaceActor = Actor.createActor(marketplaceIdlFactory, {
       agent: marketplaceAgent,
@@ -31,72 +31,134 @@ export const initializeMarketplaceActor = async () => {
 export const listTemplates = async () => {
   try {
     const actor = await initializeMarketplaceActor();
-    const templates = await actor.list_templates();
-    return { success: true, templates };
+    return await actor.list_templates();
   } catch (error) {
     console.error('Error listing templates:', error);
-    return { success: false, error: error.message };
+    throw error;
   }
 };
 
-export const createTemplate = async (name, description, category, language, code, author) => {
+export const createTemplate = async (templateData) => {
   try {
     const actor = await initializeMarketplaceActor();
-    const templateId = await actor.create_template(name, description, category, language, code, author);
-    return { success: true, templateId };
+    return await actor.create_template(
+      templateData.name,
+      templateData.description,
+      templateData.category,
+      templateData.language,
+      templateData.code,
+      templateData.author
+    );
   } catch (error) {
     console.error('Error creating template:', error);
-    return { success: false, error: error.message };
+    throw error;
   }
 };
 
 export const rateTemplate = async (templateId, rating) => {
   try {
     const actor = await initializeMarketplaceActor();
-    const success = await actor.rate_template(templateId, rating);
-    return { success };
+    return await actor.rate_template(templateId, rating);
   } catch (error) {
     console.error('Error rating template:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-// Mock functions for features not yet implemented
-export const installTemplate = async (templateId) => {
-  try {
-    // This would typically create a new project from the template
-    // For now, we'll return a mock project ID
-    const projectId = `proj_${Date.now()}`;
-    return { success: true, projectId };
-  } catch (error) {
-    console.error('Error installing template:', error);
-    return { success: false, error: error.message };
+    throw error;
   }
 };
 
 export const downloadTemplate = async (templateId) => {
   try {
-    // This would typically increment download count and return template data
-    // For now, we'll just return success
-    return { success: true };
+    const actor = await initializeMarketplaceActor();
+    return await actor.download_template(templateId);
   } catch (error) {
     console.error('Error downloading template:', error);
-    return { success: false, error: error.message };
+    throw error;
+  }
+};
+
+export const installTemplate = async (templateId) => {
+  try {
+    const actor = await initializeMarketplaceActor();
+    return await actor.download_template(templateId);
+  } catch (error) {
+    console.error('Error installing template:', error);
+    throw error;
+  }
+};
+
+export const searchTemplates = async (query, category, language, minRating, sortBy) => {
+  try {
+    const actor = await initializeMarketplaceActor();
+    return await actor.search_templates(query, category, language, minRating, sortBy);
+  } catch (error) {
+    console.error('Error searching templates:', error);
+    throw error;
   }
 };
 
 export const getTemplate = async (templateId) => {
   try {
     const actor = await initializeMarketplaceActor();
-    const templates = await actor.list_templates();
-    const template = templates.find(t => t.id === templateId);
-    if (template) {
-      return { success: true, template };
-    } else {
-      return { success: false, error: 'Template not found' };
-    }
+    return await actor.get_template(templateId);
   } catch (error) {
     console.error('Error getting template:', error);
-    return { success: false, error: error.message };
+    throw error;
+  }
+};
+
+export const updateTemplate = async (templateId, updates) => {
+  try {
+    const actor = await initializeMarketplaceActor();
+    return await actor.update_template(
+      templateId,
+      updates.name,
+      updates.description,
+      updates.category,
+      updates.language,
+      updates.code,
+      updates.author
+    );
+  } catch (error) {
+    console.error('Error updating template:', error);
+    throw error;
+  }
+};
+
+export const deleteTemplate = async (templateId) => {
+  try {
+    const actor = await initializeMarketplaceActor();
+    return await actor.delete_template(templateId);
+  } catch (error) {
+    console.error('Error deleting template:', error);
+    throw error;
+  }
+};
+
+export const getCategories = async () => {
+  try {
+    const actor = await initializeMarketplaceActor();
+    return await actor.get_categories();
+  } catch (error) {
+    console.error('Error getting categories:', error);
+    throw error;
+  }
+};
+
+export const getLanguages = async () => {
+  try {
+    const actor = await initializeMarketplaceActor();
+    return await actor.get_languages();
+  } catch (error) {
+    console.error('Error getting languages:', error);
+    throw error;
+  }
+};
+
+export const getTemplateStats = async () => {
+  try {
+    const actor = await initializeMarketplaceActor();
+    return await actor.get_template_stats();
+  } catch (error) {
+    console.error('Error getting template stats:', error);
+    throw error;
   }
 };

@@ -4,6 +4,7 @@ import { Routes, Route } from 'react-router-dom';
 // Import Contexts
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { IDEProvider } from './contexts/IDEContext';
+import { PrincipalProvider } from './contexts/PrincipalContext';
 
 // Import Components
 import Navbar from './components/Navbar';
@@ -43,13 +44,15 @@ const AppContent = () => {
   );
 };
 
-// Root component wrapped with ThemeProvider to provide theme context to all children
+// Root component wrapped with all providers
 export default function App() {
   return (
-    <ThemeProvider>
-      <IDEProvider>
-        <AppContent />
-      </IDEProvider>
-    </ThemeProvider>
+    <PrincipalProvider>
+      <ThemeProvider>
+        <IDEProvider>
+          <AppContent />
+        </IDEProvider>
+      </ThemeProvider>
+    </PrincipalProvider>
   );
 }
