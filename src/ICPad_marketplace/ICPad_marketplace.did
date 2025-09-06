@@ -11,8 +11,24 @@ type Template = record {
   rating : float32;
   downloads : nat32;
 };
+
+type SearchFilters = record {
+  category : opt text;
+  language : opt text;
+  min_rating : opt float32;
+  author : opt text;
+};
+
 service : {
   create_template : (text, text, text, text, text, text) -> (text);
   list_templates : () -> (vec Template) query;
+  get_template : (text) -> (opt Template) query;
+  search_templates : (text, opt SearchFilters) -> (vec Template) query;
+  get_categories : () -> (vec text) query;
+  get_languages : () -> (vec text) query;
   rate_template : (text, float32) -> (bool);
+  download_template : (text) -> (bool);
+  update_template : (text, opt text, opt text, opt text, opt text, opt text) -> (bool);
+  get_template_stats : () -> (nat32, float32, nat32) query;
+  initialize_sample_templates : () -> (bool);
 }
