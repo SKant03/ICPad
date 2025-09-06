@@ -16,6 +16,9 @@ pub struct Template {
     pub rating: f32,
     pub created_at: u64,
     pub updated_at: u64,
+pub rating_count: u32,     // how many ratings
+    pub rating_sum: f32,       
+
 }
 
 #[derive(CandidType, Deserialize, Clone)]
@@ -54,6 +57,8 @@ fn create_template(
         rating: 0.0,
         created_at: now,
         updated_at: now,
+         rating_count: 0,
+    rating_sum: 0.0,
     };
 
     TEMPLATES.with(|t| {
@@ -132,16 +137,13 @@ fn rate_template(template_id: String, rating: f32) -> bool {
     if rating < 1.0 || rating > 5.0 {
         return false;
     }
-    
+
     TEMPLATES.with(|t| {
         let mut map = t.borrow_mut();
         if let Some(template) = map.get_mut(&template_id) {
-            // Simple average rating calculation
-            if template.rating == 0.0 {
-                template.rating = rating;
-            } else {
-                template.rating = (template.rating + rating) / 2.0;
-            }
+            template.rating_sum += rating;
+            template.rating_count += 1;
+            template.rating = template.rating_sum / template.rating_count as f32;
             template.updated_at = ic_cdk::api::time();
             return true;
         }
@@ -245,6 +247,8 @@ fn get_greeting() -> String {
             rating: 4.5,
             created_at: now,
             updated_at: now,
+             rating_count: 0,
+    rating_sum: 0.0,
         },
         Template {
             id: "tpl_counter".to_string(),
@@ -293,6 +297,8 @@ fn reset() {
             rating: 4.2,
             created_at: now,
             updated_at: now,
+             rating_count: 0,
+    rating_sum: 0.0,
         },
         Template {
             id: "tpl_nft_basic".to_string(),
@@ -369,6 +375,8 @@ fn transfer_token(token_id: u32, new_owner: String) -> bool {
             rating: 4.8,
             created_at: now,
             updated_at: now,
+             rating_count: 0,
+    rating_sum: 0.0,
         },
     ];
     

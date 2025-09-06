@@ -36,6 +36,10 @@ const MarketplacePage = () => {
     author: principal || 'Anonymous'
   });
 
+  // Rating popup states (added)
+  const [ratingPopupTemplate, setRatingPopupTemplate] = useState(null); // template being rated
+  const [selectedRating, setSelectedRating] = useState(0); // user-selected rating
+
   // Update author when principal changes
   useEffect(() => {
     if (principal) {
@@ -124,7 +128,7 @@ const MarketplacePage = () => {
   const filteredTemplates = templates.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         template.author.toLowerCase().includes(searchTerm.toLowerCase());
+                         (template.author || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterType === 'All' || template.category === filterType;
     return matchesSearch && matchesFilter;
   });
@@ -216,7 +220,7 @@ const MarketplacePage = () => {
                   <div className="flex items-center space-x-2 mb-3">
                     <div className={`w-8 h-8 rounded-full ${isDarkMode ? 'bg-purple-600' : 'bg-purple-100'} flex items-center justify-center`}>
                       <span className={`text-xs font-medium ${isDarkMode ? 'text-white' : 'text-purple-700'}`}>
-                        {template.author.charAt(0).toUpperCase()}
+                        {template.author ? template.author.charAt(0).toUpperCase() : "?"}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -254,7 +258,10 @@ const MarketplacePage = () => {
                     <span>Use Template</span>
                   </Button>
                   <Button
-                    onClick={() => handleRateTemplate(template.id, 5)}
+                    onClick={() => {
+                      setRatingPopupTemplate(template);
+                      setSelectedRating(0);
+                    }}
                     className="bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-3 rounded-lg"
                   >
                     <Star className="w-4 h-4" />
@@ -304,7 +311,7 @@ const MarketplacePage = () => {
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-medium ${textColor} mb-2`}>
+                  <label className={`block text-sm font medium ${textColor} mb-2`}>
                     Description *
                   </label>
                   <textarea
@@ -398,6 +405,51 @@ const MarketplacePage = () => {
             </div>
           </div>
         )}
+
+        {/* Rating Popup */}
+        {ratingPopupTemplate && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 w-80`}>
+              <h2 className={`text-lg font-bold ${textColor} mb-4`}>Rate "{ratingPopupTemplate.name}"</h2>
+              <div className="flex justify-center space-x-2 mb-4">
+                {[1,2,3,4,5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setSelectedRating(star)}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-white ${
+                      star <= selectedRating ? 'bg-yellow-500' : 'bg-gray-400'
+                    }`}
+                    type="button"
+                  >
+                    <Star className="w-5 h-5" />
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-end space-x-4">
+                <Button
+                  onClick={() => setRatingPopupTemplate(null)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (selectedRating > 0) {
+                      await handleRateTemplate(ratingPopupTemplate.id, selectedRating);
+                      setRatingPopupTemplate(null);
+                    } else {
+                      alert('Please select a rating (1-5)');
+                    }
+                  }}
+                  className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg"
+                >
+                  Submit
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
