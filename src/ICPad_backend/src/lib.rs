@@ -7,6 +7,9 @@ use num_traits::ToPrimitive;
 use std::time::Duration;
 use ic_cdk_timers::set_timer;
 
+// ✅ Define your ngrok/off-chain controller URL once here
+const DOCKER_CONTROLLER_URL: &str = "https://fdbe92cd247b.ngrok-free.app";
+
 #[derive(CandidType, Deserialize)]
 struct SessionResponse {
     container_id: String,
@@ -21,7 +24,7 @@ async fn start_docker_session(user_id: String) -> Result<String, String> {
     );
 
     let req = HttpRequestArgs {
-        url: "https://e2bd84efdf04.ngrok-free.app/start".to_string(),
+        url: format!("{}/start", DOCKER_CONTROLLER_URL), // 🔥 Reuse constant
         max_response_bytes: Some(2000),
         method: HttpMethod::POST,
         headers: vec![HttpHeader {
@@ -62,7 +65,7 @@ async fn stop_docker_session(container_id: String) -> Result<String, String> {
     let payload = format!(r#"{{"container_id":"{}"}}"#, container_id);
 
     let req = HttpRequestArgs {
-        url: "https://e2bd84efdf04.ngrok-free.app/stop".to_string(),
+        url: format!("{}/stop", DOCKER_CONTROLLER_URL), // 🔥 Reuse constant
         max_response_bytes: Some(2000),
         method: HttpMethod::POST,
         headers: vec![HttpHeader {
