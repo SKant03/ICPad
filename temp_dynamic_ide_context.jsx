@@ -11,6 +11,7 @@ import {
   checkCanisterConnection
 } from '../utils/canisterService';
 import { PrincipalContext } from './PrincipalContext';
+import { FunctionParser } from '../utils/functionParser';
 
 const IDEContext = createContext();
 
@@ -34,6 +35,7 @@ export const IDEProvider = ({ children }) => {
   const [code, setCode] = useState("");
   const [originalCode, setOriginalCode] = useState(""); // Track original code
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [availableFunctions, setAvailableFunctions] = useState([]); // NEW: Dynamic functions
 
   // Update connection status based on authentication and canister connection
   useEffect(() => {
@@ -71,6 +73,17 @@ export const IDEProvider = ({ children }) => {
   useEffect(() => {
     loadProjects();
   }, []);
+
+  // NEW: Parse functions when code changes
+  useEffect(() => {
+    if (currentProject && code) {
+      const functions = FunctionParser.parseFunctions(code, currentProject.language);
+      setAvailableFunctions(functions);
+      console.log('Parsed functions:', functions);
+    } else {
+      setAvailableFunctions([]);
+    }
+  }, [code, currentProject]);
 
   // Check if code has changed from the deployed version
   useEffect(() => {
@@ -238,8 +251,8 @@ export const IDEProvider = ({ children }) => {
     }
 
     setIsLoading(true);
-    addTerminalOutput('🔨 Compiling project...');
-    addTerminalOutput(`📝 Using current editor code (${code.length} characters)`);
+    addTerminalOutput('�� Compiling project...');
+    addTerminalOutput(`�� Using current editor code (${code.length} characters)`);
     
     try {
       // FIXED: Pass current code to compilation
@@ -361,6 +374,38 @@ export const IDEProvider = ({ children }) => {
     }
   };
 
+  // NEW: Dynamic function testing
+  const testFunction = async (functionInfo) => {
+    if (!currentProject) {
+      addTerminalOutput('❌ No project selected for testing');
+      return;
+    }
+
+    if (!currentProject.deployed) {
+      addTerminalOutput('❌ Project not deployed, cannot test functions');
+      return;
+    }
+
+    const testArgs = FunctionParser.generateTestArgs(functionInfo);
+    addTerminalOutput(`🧪 Testing function: ${functionInfo.name}(${testArgs.join(', ')})`);
+    
+    try {
+      const result = await callFunction(currentProject.id, functionInfo.name, testArgs);
+      if (result.success) {
+        const callResult = result.result;
+        if (callResult.success) {
+          addTerminalOutput(`✅ ${functionInfo.name}() result: ${callResult.result}`);
+        } else {
+          addTerminalOutput(`❌ ${functionInfo.name}() error: ${callResult.error}`);
+        }
+      } else {
+        addTerminalOutput(`❌ Failed to test ${functionInfo.name}(): ` + result.error);
+      }
+    } catch (error) {
+      addTerminalOutput(`❌ Error testing ${functionInfo.name}(): ` + error.message);
+    }
+  };
+
   const testCurrentProject = async (testInput) => {
     if (!currentProject) {
       addTerminalOutput('❌ No project selected for testing');
@@ -390,21 +435,6 @@ export const IDEProvider = ({ children }) => {
     setShowCompilationResults(false);
   };
 
-  // NEW: Test getMessage function
-  const testGetMessage = async () => {
-    await callProjectFunction('getMessage', []);
-  };
-
-  // NEW: Test greet function
-  const testGreet = async () => {
-    await callProjectFunction('greet', ['World']);
-  };
-
-  // NEW: Test whoami function
-  const testWhoami = async () => {
-    await callProjectFunction('whoami', []);
-  };
-
   const value = {
     projects,
     currentProject,
@@ -418,6 +448,7 @@ export const IDEProvider = ({ children }) => {
     code,
     setCode,
     hasUnsavedChanges,
+    availableFunctions, // NEW: Dynamic functions
     loadProjects,
     createNewProject,
     loadProject,
@@ -425,10 +456,8 @@ export const IDEProvider = ({ children }) => {
     compileCurrentProject,
     deployCurrentProject,
     callProjectFunction,
+    testFunction, // NEW: Dynamic function testing
     testCurrentProject,
-    testGetMessage,
-    testGreet,
-    testWhoami,
     addTerminalOutput,
     clearTerminal,
     checkConnection,

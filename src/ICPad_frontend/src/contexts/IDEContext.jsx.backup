@@ -225,7 +225,6 @@ export const IDEProvider = ({ children }) => {
     }
   };
 
-  // FIXED: Compilation now uses current editor code
   const compileCurrentProject = async () => {
     if (!currentProject) {
       addTerminalOutput('❌ No project selected for compilation');
@@ -239,11 +238,9 @@ export const IDEProvider = ({ children }) => {
 
     setIsLoading(true);
     addTerminalOutput('🔨 Compiling project...');
-    addTerminalOutput(`📝 Using current editor code (${code.length} characters)`);
     
     try {
-      // FIXED: Pass current code to compilation
-      const result = await compileProject(currentProject.id, code);
+      const result = await compileProject(currentProject.id);
       if (result.success) {
         const compileResult = result.result;
         setCompilationResult(compileResult);
@@ -278,7 +275,6 @@ export const IDEProvider = ({ children }) => {
     }
   };
 
-  // FIXED: Deployment now uses current editor code
   const deployCurrentProject = async () => {
     if (!currentProject) {
       addTerminalOutput('❌ No project selected for deployment');
@@ -292,11 +288,10 @@ export const IDEProvider = ({ children }) => {
 
     setIsLoading(true);
     addTerminalOutput('🚀 Deploying project to Internet Computer...');
-    addTerminalOutput(`📝 Using current editor code (${code.length} characters)`);
     
     try {
-      // FIXED: First compile with current code to get WASM
-      const compileResult = await compileProject(currentProject.id, code);
+      // First compile to get WASM
+      const compileResult = await compileProject(currentProject.id);
       if (!compileResult.success) {
         addTerminalOutput('❌ Compilation failed, cannot deploy');
         return;

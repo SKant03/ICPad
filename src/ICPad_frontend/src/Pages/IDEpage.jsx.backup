@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import Terminal from "../components/Terminal";
 import { useIDE } from "../contexts/IDEContext";
@@ -107,40 +107,6 @@ export function whoami() {
 }`,
     },
   };
-
-  // Function to check if specific functions exist in the current code
-  const checkFunctionExists = (functionName) => {
-    if (!code) return false;
-    
-    const lowerCode = code.toLowerCase();
-    const lowerFunctionName = functionName.toLowerCase();
-    
-    // Check for different function declaration patterns
-    const patterns = [
-      `function ${lowerFunctionName}`,           // JavaScript
-      `func ${lowerFunctionName}`,               // Motoko
-      `pub async fn ${lowerFunctionName}`,       // Rust
-      `pub fn ${lowerFunctionName}`,             // Rust
-      `async fn ${lowerFunctionName}`,           // Rust
-      `fn ${lowerFunctionName}`,                 // Rust
-    ];
-    
-    return patterns.some(pattern => lowerCode.includes(pattern));
-  };
-
-  // Use useMemo to recalculate available functions when code changes
-  const availableTestFunctions = useMemo(() => {
-    console.log('Checking available functions in code:', code?.substring(0, 100) + '...');
-    
-    const functions = {
-      getMessage: checkFunctionExists('getMessage') || checkFunctionExists('get_message'),
-      greet: checkFunctionExists('greet'),
-      whoami: checkFunctionExists('whoami')
-    };
-    
-    console.log('Available test functions:', functions);
-    return functions;
-  }, [code]);
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) return;
@@ -330,38 +296,32 @@ export function whoami() {
             </div>
           </Card>
 
-          {/* Function Tests - Only show if project is deployed AND has testable functions */}
-          {currentProject && currentProject.deployed && (availableTestFunctions.getMessage || availableTestFunctions.greet || availableTestFunctions.whoami) && (
+          {/* Function Tests - Only show if project is deployed */}
+          {currentProject && currentProject.deployed && (
             <Card className="m-4 p-4">
               <h3 className="text-lg font-semibold mb-3">Test Functions</h3>
               <div className="space-y-2">
-                {availableTestFunctions.getMessage && (
-                  <Button
-                    onClick={testGetMessage}
-                    disabled={isLoading}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                  >
-                    Test getMessage()
-                  </Button>
-                )}
-                {availableTestFunctions.greet && (
-                  <Button
-                    onClick={testGreet}
-                    disabled={isLoading}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                  >
-                    Test greet()
-                  </Button>
-                )}
-                {availableTestFunctions.whoami && (
-                  <Button
-                    onClick={testWhoami}
-                    disabled={isLoading}
-                    className="w-full bg-purple-600 hover:bg-purple-700"
-                  >
-                    Test whoami()
-                  </Button>
-                )}
+                <Button
+                  onClick={testGetMessage}
+                  disabled={isLoading}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  Test getMessage()
+                </Button>
+                <Button
+                  onClick={testGreet}
+                  disabled={isLoading}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  Test greet()
+                </Button>
+                <Button
+                  onClick={testWhoami}
+                  disabled={isLoading}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                >
+                  Test whoami()
+                </Button>
               </div>
             </Card>
           )}

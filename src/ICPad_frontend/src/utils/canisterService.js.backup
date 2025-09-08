@@ -137,8 +137,8 @@ export const updateProjectCode = async (projectId, newCode) => {
   }
 };
 
-// FIXED: Development operations - now accepts current code
-export const compileProject = async (projectId, currentCode = null) => {
+// Development operations
+export const compileProject = async (projectId) => {
   try {
     // First get the project to check its language
     const projectResult = await getProject(projectId);
@@ -149,28 +149,17 @@ export const compileProject = async (projectId, currentCode = null) => {
     const project = projectResult.project;
     console.log('Compiling project:', project.name, 'Language:', project.language);
     
-    // Use current code if provided, otherwise fall back to stored code
-    const codeToCompile = currentCode || project.code;
-    console.log('Using code for compilation:', currentCode ? 'current editor code' : 'stored project code');
-    
     // Handle Motoko projects with frontend compiler
     if (project.language === 'motoko') {
       console.log('Using frontend Motoko compiler...');
-      const compileResult = await motokoCompiler.compile(codeToCompile);
+      const compileResult = await motokoCompiler.compile(project.code);
       console.log('Motoko compilation result:', compileResult);
       return { success: true, result: compileResult };
     }
     
-    // For other languages, use backend compilation with current code
+    // For other languages, use backend compilation
     console.log('Using backend compiler for:', project.language);
     const actor = getActor();
-    
-    // Update the project code temporarily for compilation
-    if (currentCode && currentCode !== project.code) {
-      console.log('Updating project code for compilation...');
-      await updateProjectCode(projectId, currentCode);
-    }
-    
     const result = await actor.compile_project(projectId);
     if ('Ok' in result) {
       return { success: true, result: result.Ok };
