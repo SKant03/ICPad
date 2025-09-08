@@ -1,14 +1,16 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import {
-  createProject,
-  getProject,
-  listProjects,
-  updateProjectCode,
-  compileProject,
-  deployProject,
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { 
+  createProject, 
+  getProject, 
+  listProjects, 
+  updateProjectCode, 
+  compileProject, 
+  deployProjectWithWasm,
+  callFunction,
   testProject,
   checkCanisterConnection
 } from '../utils/canisterService';
+import { PrincipalContext } from './PrincipalContext';
 
 const IDEContext = createContext();
 
@@ -21,27 +23,119 @@ export const useIDE = () => {
 };
 
 export const IDEProvider = ({ children }) => {
-  const [currentProject, setCurrentProject] = useState(null);
+  const { principal, isAuthenticated, isLoading: authLoading } = useContext(PrincipalContext);
   const [projects, setProjects] = useState([]);
-  const [isConnected, setIsConnected] = useState(false);
+  const [currentProject, setCurrentProject] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [terminalOutput, setTerminalOutput] = useState([]);
-  const [code, setCode] = useState('');
+  const [compilationResult, setCompilationResult] = useState(null);
+  const [showCompilationResults, setShowCompilationResults] = useState(false);
+  const [code, setCode] = useState("");
+  const [originalCode, setOriginalCode] = useState(""); // Track original code
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Check canister connection on mount
+  // Update connection status based on authentication and canister connection
   useEffect(() => {
-    checkConnection();
+    const checkConnectionStatus = async () => {
+      // Don't check if still loading authentication
+      if (authLoading) {
+        return;
+      }
+
+      try {
+        const result = await checkCanisterConnection();
+        const canisterConnected = result.success && result.connected;
+        
+        // Only connected if both authenticated AND canister is reachable
+        const connected = isAuthenticated && canisterConnected;
+        setIsConnected(connected);
+        
+        if (connected) {
+          addTerminalOutput('✅ Connected to Internet Computer');
+        } else if (!isAuthenticated) {
+          addTerminalOutput('❌ Please log in with Internet Identity');
+        } else if (!canisterConnected) {
+          addTerminalOutput('❌ Disconnected from Internet Computer');
+        }
+      } catch (error) {
+        setIsConnected(false);
+        addTerminalOutput('❌ Connection error: ' + error.message);
+      }
+    };
+
+    checkConnectionStatus();
+  }, [isAuthenticated, authLoading]);
+
+  // Load projects on mount
+  useEffect(() => {
     loadProjects();
   }, []);
+
+  // Check if code has changed from the deployed version
+  useEffect(() => {
+    if (currentProject && code !== originalCode) {
+      // Code has changed, mark as not deployed
+      setCurrentProject(prev => prev ? { ...prev, deployed: false, canister_id: null } : null);
+      setHasUnsavedChanges(true);
+      addTerminalOutput('⚠️ Code changed - project needs to be redeployed');
+    } else if (currentProject && code === originalCode) {
+      setHasUnsavedChanges(false);
+    }
+  }, [code, originalCode, currentProject]);
+
+  // Auto-save functionality (debounced)
+  useEffect(() => {
+    if (!currentProject || !hasUnsavedChanges) return;
+
+    const timeoutId = setTimeout(() => {
+      autoSave();
+    }, 2000); // Auto-save after 2 seconds of inactivity
+
+    return () => clearTimeout(timeoutId);
+  }, [code, currentProject, hasUnsavedChanges]);
+
+  const addTerminalOutput = (message) => {
+    setTerminalOutput(prev => [...prev, { message, timestamp: new Date().toISOString() }]);
+  };
+
+  const autoSave = useCallback(async () => {
+    if (!currentProject || !hasUnsavedChanges) return;
+
+    try {
+      console.log('Auto-saving project...', currentProject.id);
+      const result = await updateProjectCode(currentProject.id, code);
+      if (result.success) {
+        addTerminalOutput('💾 Auto-saved project');
+        setCurrentProject(prev => prev ? { ...prev, code, updated_at: Date.now() } : null);
+        setOriginalCode(code); // Update original code after saving
+        setHasUnsavedChanges(false);
+      } else {
+        addTerminalOutput('❌ Auto-save failed: ' + result.error);
+      }
+    } catch (error) {
+      addTerminalOutput('❌ Auto-save error: ' + error.message);
+    }
+  }, [currentProject, code, hasUnsavedChanges]);
 
   const checkConnection = async () => {
     try {
       const result = await checkCanisterConnection();
-      setIsConnected(result.connected);
-      if (result.connected) {
-        addTerminalOutput('✅ Connected to ICPad backend canister');
+      if (result.success) {
+        const canisterConnected = result.connected;
+        const connected = isAuthenticated && canisterConnected;
+        setIsConnected(connected);
+        
+        if (connected) {
+          addTerminalOutput('✅ Connected to Internet Computer');
+        } else if (!isAuthenticated) {
+          addTerminalOutput('❌ Please log in with Internet Identity');
+        } else {
+          addTerminalOutput('❌ Disconnected from Internet Computer');
+        }
       } else {
-        addTerminalOutput('❌ Failed to connect to canister: ' + (result.error || 'Unknown error'));
+        setIsConnected(false);
+        addTerminalOutput('❌ Connection check failed: ' + result.error);
       }
     } catch (error) {
       setIsConnected(false);
@@ -50,34 +144,29 @@ export const IDEProvider = ({ children }) => {
   };
 
   const loadProjects = async () => {
-    setIsLoading(true);
     try {
       console.log('Loading projects...');
       const result = await listProjects();
       console.log('Projects result:', result);
+      
       if (result.success) {
-        setProjects(result.projects || []);
-        addTerminalOutput(`📁 Loaded ${result.projects?.length || 0} projects`);
+        setProjects(result.projects);
       } else {
+        console.error('Failed to load projects:', result.error);
         addTerminalOutput('❌ Failed to load projects: ' + result.error);
       }
     } catch (error) {
       console.error('Error loading projects:', error);
       addTerminalOutput('❌ Error loading projects: ' + error.message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const createNewProject = async (name, language, initialCode) => {
-    setIsLoading(true);
-    addTerminalOutput(`🚀 Creating new project: ${name} (${language})`);
-    
     try {
       const result = await createProject(name, language, initialCode);
       if (result.success) {
-        addTerminalOutput(`✅ Project created successfully! ID: ${result.projectId}`);
-        await loadProjects(); // Refresh project list
+        addTerminalOutput(`✅ Created project: ${name} (${language})`);
+        await loadProjects(); // Refresh projects list
         return result.projectId;
       } else {
         addTerminalOutput('❌ Failed to create project: ' + result.error);
@@ -86,58 +175,53 @@ export const IDEProvider = ({ children }) => {
     } catch (error) {
       addTerminalOutput('❌ Error creating project: ' + error.message);
       return null;
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const loadProject = async (projectId) => {
-    setIsLoading(true);
-    addTerminalOutput(`📂 Loading project: ${projectId}`);
-    
     try {
       console.log('Loading project with ID:', projectId);
       const result = await getProject(projectId);
       console.log('Project load result:', result);
-      if (result.success && result.project) {
-        // Fix: handle array case
-        const projectObj = Array.isArray(result.project) ? result.project[0] : result.project;
-        console.log('Setting current project:', projectObj);
-        setCurrentProject(projectObj);
-        setCode(projectObj.code);
-        addTerminalOutput(`✅ Project loaded: ${projectObj.name}`);
-      } else {
-        addTerminalOutput('❌ Failed to load project: ' + (result.error || 'Project not found'));
-      }
-    } catch (error) {
-      console.error('Error loading project:', error);
-      addTerminalOutput('❌ Error loading project: ' + error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const saveProjectCode = async (projectId, newCode) => {
-    if (!projectId) {
-      addTerminalOutput('❌ No project selected for saving');
-      return false;
-    }
-
-    addTerminalOutput('💾 Saving project code...');
-    
-    try {
-      const result = await updateProjectCode(projectId, newCode);
+      
       if (result.success) {
-        setCode(newCode);
-        addTerminalOutput('✅ Code saved successfully');
+        setCurrentProject(result.project);
+        setCode(result.project.code); // Set the code in the editor
+        setOriginalCode(result.project.code); // Set original code for comparison
+        setHasUnsavedChanges(false);
+        console.log('Setting current project:', result.project);
+        addTerminalOutput(`✅ Loaded project: ${result.project.name}`);
         return true;
       } else {
-        addTerminalOutput('❌ Failed to save code: ' + result.error);
+        addTerminalOutput('❌ Failed to load project: ' + result.error);
         return false;
       }
     } catch (error) {
-      addTerminalOutput('❌ Error saving code: ' + error.message);
+      addTerminalOutput('❌ Error loading project: ' + error.message);
       return false;
+    }
+  };
+
+  const saveCurrentProject = async () => {
+    if (!currentProject) {
+      addTerminalOutput('❌ No project selected for saving');
+      return;
+    }
+
+    try {
+      console.log('Manually saving project...', currentProject.id, 'Code length:', code.length);
+      const result = await updateProjectCode(currentProject.id, code);
+      if (result.success) {
+        addTerminalOutput('💾 Project saved manually');
+        // Update the current project with the new code
+        setCurrentProject(prev => prev ? { ...prev, code, updated_at: Date.now() } : null);
+        setOriginalCode(code); // Update original code after saving
+        setHasUnsavedChanges(false);
+      } else {
+        addTerminalOutput('❌ Failed to save project: ' + result.error);
+      }
+    } catch (error) {
+      addTerminalOutput('❌ Error saving project: ' + error.message);
     }
   };
 
@@ -147,6 +231,11 @@ export const IDEProvider = ({ children }) => {
       return;
     }
 
+    // Auto-save before compiling
+    if (hasUnsavedChanges) {
+      await autoSave();
+    }
+
     setIsLoading(true);
     addTerminalOutput('🔨 Compiling project...');
     
@@ -154,9 +243,19 @@ export const IDEProvider = ({ children }) => {
       const result = await compileProject(currentProject.id);
       if (result.success) {
         const compileResult = result.result;
+        setCompilationResult(compileResult);
+        setShowCompilationResults(true);
+        
         if (compileResult.success) {
           addTerminalOutput('✅ Compilation successful!');
           addTerminalOutput(compileResult.output);
+          
+          if (compileResult.wasm) {
+            addTerminalOutput(`📦 Generated WASM: ${compileResult.wasm.length} bytes`);
+          }
+          if (compileResult.candid) {
+            addTerminalOutput(`📄 Generated Candid interface`);
+          }
         } else {
           addTerminalOutput('❌ Compilation failed!');
           addTerminalOutput(compileResult.output);
@@ -182,36 +281,78 @@ export const IDEProvider = ({ children }) => {
       return;
     }
 
+    // Auto-save before deploying
+    if (hasUnsavedChanges) {
+      await autoSave();
+    }
+
     setIsLoading(true);
     addTerminalOutput('🚀 Deploying project to Internet Computer...');
     
     try {
-      const result = await deployProject(currentProject.id);
+      // First compile to get WASM
+      const compileResult = await compileProject(currentProject.id);
+      if (!compileResult.success) {
+        addTerminalOutput('❌ Compilation failed, cannot deploy');
+        return;
+      }
+
+      const { wasm, candid } = compileResult.result;
+      if (!wasm || !candid) {
+        addTerminalOutput('❌ No WASM or Candid generated, cannot deploy');
+        return;
+      }
+
+      // Deploy with WASM
+      const result = await deployProjectWithWasm(currentProject.id, wasm, candid);
       if (result.success) {
         const deployResult = result.result;
-        if (deployResult.success) {
-          addTerminalOutput('✅ Deployment successful!');
-          if (deployResult.canister_id) {
-            addTerminalOutput(`🌐 Canister ID: ${deployResult.canister_id}`);
-          }
-          if (deployResult.url) {
-            addTerminalOutput(`🔗 URL: ${deployResult.url}`);
-          }
-          addTerminalOutput(deployResult.output);
-          
-          // Update current project with deployment info
-          await loadProject(currentProject.id);
-        } else {
-          addTerminalOutput('❌ Deployment failed!');
-          addTerminalOutput(deployResult.output);
-        }
+        addTerminalOutput('✅ Deployment successful!');
+        addTerminalOutput(`🌐 Canister ID: ${deployResult.canister_id}`);
+        addTerminalOutput(`🔗 URL: ${deployResult.url}`);
+        addTerminalOutput(`📦 WASM Size: ${deployResult.wasm_size} bytes`);
+        addTerminalOutput(deployResult.output);
+        
+        // Update current project with deployment info
+        await loadProject(currentProject.id);
+        setOriginalCode(code); // Update original code after deployment
       } else {
-        addTerminalOutput('❌ Failed to deploy: ' + result.error);
+        addTerminalOutput('❌ Deployment failed: ' + result.error);
       }
     } catch (error) {
       addTerminalOutput('❌ Error during deployment: ' + error.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const callProjectFunction = async (functionName, args = []) => {
+    if (!currentProject) {
+      addTerminalOutput('❌ No project selected for function call');
+      return;
+    }
+
+    if (!currentProject.deployed) {
+      addTerminalOutput('❌ Project not deployed, cannot call functions');
+      return;
+    }
+
+    addTerminalOutput(`🔧 Calling function: ${functionName}(${args.join(', ')})`);
+    
+    try {
+      const result = await callFunction(currentProject.id, functionName, args);
+      if (result.success) {
+        const callResult = result.result;
+        if (callResult.success) {
+          addTerminalOutput(`✅ Function result: ${callResult.result}`);
+        } else {
+          addTerminalOutput(`❌ Function error: ${callResult.error}`);
+        }
+      } else {
+        addTerminalOutput('❌ Failed to call function: ' + result.error);
+      }
+    } catch (error) {
+      addTerminalOutput('❌ Error calling function: ' + error.message);
     }
   };
 
@@ -235,33 +376,57 @@ export const IDEProvider = ({ children }) => {
     }
   };
 
-  const addTerminalOutput = (message) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setTerminalOutput(prev => [...prev, { timestamp, message }]);
-  };
-
   const clearTerminal = () => {
     setTerminalOutput([]);
   };
 
+  // NEW: Close compilation results
+  const closeCompilationResults = () => {
+    setShowCompilationResults(false);
+  };
+
+  // NEW: Test getMessage function
+  const testGetMessage = async () => {
+    await callProjectFunction('getMessage', []);
+  };
+
+  // NEW: Test greet function
+  const testGreet = async () => {
+    await callProjectFunction('greet', ['World']);
+  };
+
+  // NEW: Test whoami function
+  const testWhoami = async () => {
+    await callProjectFunction('whoami', []);
+  };
+
   const value = {
-    currentProject,
     projects,
-    isConnected,
+    currentProject,
     isLoading,
+    isConnected,
     terminalOutput,
+    compilationResult,
+    showCompilationResults,
+    setShowCompilationResults,
+    closeCompilationResults,
     code,
     setCode,
+    hasUnsavedChanges,
+    loadProjects,
     createNewProject,
     loadProject,
-    saveProjectCode,
+    saveCurrentProject,
     compileCurrentProject,
     deployCurrentProject,
+    callProjectFunction,
     testCurrentProject,
+    testGetMessage,
+    testGreet,
+    testWhoami,
     addTerminalOutput,
     clearTerminal,
-    loadProjects,
-    checkConnection
+    checkConnection,
   };
 
   return (
@@ -269,4 +434,4 @@ export const IDEProvider = ({ children }) => {
       {children}
     </IDEContext.Provider>
   );
-}; 
+};

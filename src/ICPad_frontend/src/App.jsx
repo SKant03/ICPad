@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 
 // Import Contexts
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { IDEProvider } from './contexts/IDEContext';
+import { PrincipalProvider } from './contexts/PrincipalContext';
 
 // Import Components
-import Navbar from './components/Navbar'; // Navbar is rendered globally by App.jsx
+import Navbar from './components/Navbar';
 
 // Import ALL Pages
 import LandingPage from './Pages/Landingpage';
@@ -17,14 +18,12 @@ import DeployPage from './Pages/Deploypage';
 import SettingsPage from './Pages/Settingpage';
 
 // Main App Component
-const App = () => {
+const AppContent = () => {
   const { isDarkMode } = useTheme();
 
   const mainContentBg = isDarkMode ? 'bg-slate-900' : 'bg-gray-50';
 
   return (
-    // Removed <Router> and </Router> tags here.
-    // The external environment provides the Router.
     <div className={`flex flex-col min-h-screen font-sans ${isDarkMode ? 'dark' : ''}`}>
       {/* Navbar is always at the top, wrapping all content */}
       <Navbar />
@@ -45,13 +44,15 @@ const App = () => {
   );
 };
 
-// Root component wrapped with ThemeProvider to provide theme context to all children
-export default function ICPadApp() {
+// Root component wrapped with all providers
+export default function App() {
   return (
-    <ThemeProvider>
-      <IDEProvider>
-        <App />
-      </IDEProvider>
-    </ThemeProvider>
+    <PrincipalProvider>
+      <ThemeProvider>
+        <IDEProvider>
+          <AppContent />
+        </IDEProvider>
+      </ThemeProvider>
+    </PrincipalProvider>
   );
 }
