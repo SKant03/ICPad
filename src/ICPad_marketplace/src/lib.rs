@@ -143,7 +143,8 @@ fn rate_template(template_id: String, rating: f32) -> bool {
         if let Some(template) = map.get_mut(&template_id) {
             template.rating_sum += rating;
             template.rating_count += 1;
-            template.rating = template.rating_sum / template.rating_count as f32;
+   let avg = template.rating_sum / template.rating_count as f32;
+            template.rating = (avg * 100.0).round() / 100.0;
             template.updated_at = ic_cdk::api::time();
             return true;
         }
