@@ -20,6 +20,9 @@ pub struct Project {
     pub canister_id: Option<String>,
 }
 
+// ✅ Define your ngrok/off-chain controller URL once here
+const DOCKER_CONTROLLER_URL: &str = "https://fdbe92cd247b.ngrok-free.app";
+
 #[derive(CandidType, Deserialize)]
 struct SessionResponse {
     container_id: String,
@@ -63,9 +66,9 @@ async fn start_docker_session(user_id: String) -> Result<String, String> {
         user_id
     );
 
-    let req = ic_cdk::management_canister::HttpRequestArgs {
+  let req = ic_cdk::management_canister::HttpRequestArgs {
         url: "https://e2bd84efdf04.ngrok-free.app/start".to_string(),
-        max_response_bytes: Some(2000),
+  max_response_bytes: Some(2000),
         method: ic_cdk::management_canister::HttpMethod::POST,
         headers: vec![ic_cdk::management_canister::HttpHeader {
             name: "Content-Type".to_string(),
@@ -120,6 +123,7 @@ async fn stop_docker_session(container_id: String) -> Result<String, String> {
         body: Some(payload.into_bytes()),
         transform: None,
     };
+
 
     match http_request(&req).await {
         Ok(ic_cdk::management_canister::HttpRequestResult { status, body: _, .. }) => {
