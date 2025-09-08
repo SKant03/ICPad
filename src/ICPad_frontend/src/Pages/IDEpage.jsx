@@ -18,12 +18,16 @@ export default function IDEpage() {
     terminalOutput,
     code,
     setCode,
+    hasUnsavedChanges,
     createNewProject,
     loadProject,
-    saveProjectCode,
+    saveCurrentProject,
     compileCurrentProject,
     deployCurrentProject,
     testCurrentProject,
+    testGetMessage,
+    testGreet,
+    testWhoami,
     addTerminalOutput,
     clearTerminal,
     loadProjects
@@ -51,17 +55,19 @@ struct Message {
 }
 
 #[update]
-fn greet(name: String) -> String {
+pub async fn greet(name: String) -> String {
     format!("Hello, {}! Welcome to ICPad!", name)
 }
 
 #[update]
-fn get_message() -> Message {
-    Message {
-        text: "Hello from ICPad!".to_string(),
-    }
+pub async fn get_message() -> String {
+    "Hello from ICPad!".to_string()
+}
+
+#[update]
+pub async fn whoami() -> String {
+    "Principal from actor".to_string()
 }`,
-      monacoLanguage: "rust"
     },
     motoko: {
       name: "Motoko",
@@ -83,7 +89,6 @@ actor Hello {
         return Principal.fromActor(Hello);
     };
 }`,
-      monacoLanguage: "motoko"
     },
     javascript: {
       name: "JavaScript",
@@ -98,105 +103,76 @@ export function getMessage() {
 }
 
 export function whoami() {
-    return "anonymous";
+    return "Principal from actor";
 }`,
-      monacoLanguage: "javascript"
+    },
+  };
+
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim()) return;
+
+    const language = newProjectLanguage;
+    const template = languageConfigs[language]?.template || "";
+    
+    const projectId = await createNewProject(newProjectName, language, template);
+    if (projectId) {
+      setNewProjectName("");
+      setNewProjectLanguage("rust");
+      await loadProject(projectId);
     }
   };
 
   const handleLanguageChange = (language) => {
     setSelectedLanguage(language);
     if (currentProject) {
-      // Update current project language
-      const newCode = languageConfigs[language]?.template || code;
-      setCode(newCode);
+      // Update project language if project is loaded
+      // This would require a backend call to update the project
     }
   };
 
-  const handleCreateProject = async () => {
-    if (!newProjectName.trim()) {
-      addTerminalOutput("❌ Please enter a project name");
-      return;
-    }
-
-    const config = languageConfigs[newProjectLanguage];
-    if (!config) {
-      addTerminalOutput("❌ Unsupported language");
-      return;
-    }
-
-    const projectId = await createNewProject(newProjectName, newProjectLanguage, config.template);
-    if (projectId) {
-      setNewProjectName("");
-      addTerminalOutput(`✅ Created project: ${newProjectName} (${config.name})`);
-    }
+  const handleLoadProject = async (project) => {
+    await loadProject(project.id);
+    setSelectedLanguage(project.language);
   };
 
-  const handleSaveCode = async () => {
-    if (!currentProject) {
-      addTerminalOutput("❌ No project selected");
-      return;
-    }
-
-    const success = await saveProjectCode(currentProject.id, code);
-    if (success) {
-      addTerminalOutput("✅ Code saved successfully");
-    }
+  const handleSaveProject = async () => {
+    await saveCurrentProject();
   };
 
-  const handleCompile = async () => {
-    if (!currentProject) {
-      addTerminalOutput("❌ No project selected");
-      return;
-    }
-
+  const handleCompileProject = async () => {
     await compileCurrentProject();
   };
 
-  const handleDeploy = async () => {
-    if (!currentProject) {
-      addTerminalOutput("❌ No project selected");
-      return;
-    }
-
+  const handleDeployProject = async () => {
     await deployCurrentProject();
   };
 
-  const handleTest = async () => {
-    if (!currentProject) {
-      addTerminalOutput("❌ No project selected");
-      return;
-    }
-
+  const handleTestProject = async () => {
     const testInput = prompt("Enter test input:");
     if (testInput !== null) {
       await testCurrentProject(testInput);
     }
   };
 
-  const getCurrentLanguage = () => {
-    if (currentProject) {
-      return currentProject.language || "rust";
-    }
-    return selectedLanguage;
+  const handleTerminalHeightChange = (height) => {
+    setTerminalHeight(height);
   };
 
-  const getCurrentConfig = () => {
-    const lang = getCurrentLanguage();
-    return languageConfigs[lang] || languageConfigs.rust;
+  const handleClearTerminal = () => {
+    clearTerminal();
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-900 text-white">
+    <div className="flex flex-col h-screen bg-gray-900 text-white">
       {/* Header */}
       <div className="bg-gray-800 border-b border-gray-700 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-bold">ICPad IDE</h1>
+            <h1 className="text-2xl font-bold">ICPad IDE</h1>
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-400">Language:</span>
               <select
-                value={getCurrentLanguage()}
+                value={selectedLanguage}
                 onChange={(e) => handleLanguageChange(e.target.value)}
                 className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm"
                 disabled={!!currentProject}
@@ -209,6 +185,9 @@ export function whoami() {
             {currentProject && (
               <div className="text-sm text-gray-400">
                 Project: <span className="text-white font-medium">{currentProject.name}</span>
+                {hasUnsavedChanges && (
+                  <span className="ml-2 text-yellow-400 text-xs">● Unsaved changes</span>
+                )}
               </div>
             )}
           </div>
@@ -249,27 +228,34 @@ export function whoami() {
                 disabled={isLoading || !newProjectName.trim()}
                 className="w-full"
               >
-                {isLoading ? "Creating..." : "Create Project"}
+                Create Project
               </Button>
             </div>
           </Card>
 
-          {/* Project List */}
+          {/* Projects */}
           <Card className="m-4 p-4 flex-1">
             <h3 className="text-lg font-semibold mb-3">Projects</h3>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="space-y-2 max-h-60 overflow-y-auto">
               {projects.map((project) => (
                 <div
                   key={project.id}
-                  onClick={() => loadProject(project.id)}
-                  className={`p-2 rounded cursor-pointer transition-colors ${
+                  onClick={() => handleLoadProject(project)}
+                  className={`p-3 rounded cursor-pointer transition-colors ${
                     currentProject?.id === project.id
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-blue-600'
                       : 'bg-gray-700 hover:bg-gray-600'
                   }`}
                 >
-                  <div className="font-medium text-sm">{project.name}</div>
-                  <div className="text-xs text-gray-400">{project.language}</div>
+                  <div className="font-medium">{project.name}</div>
+                  <div className="text-sm text-gray-400">
+                    {project.language} • {new Date(project.created_at / 1000000).toLocaleDateString()}
+                  </div>
+                  {project.deployed && (
+                    <div className="text-xs text-green-400 mt-1">
+                      ✓ Deployed
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -280,35 +266,65 @@ export function whoami() {
             <h3 className="text-lg font-semibold mb-3">Actions</h3>
             <div className="space-y-2">
               <Button
-                onClick={handleSaveCode}
-                disabled={!currentProject || isLoading}
-                className="w-full"
+                onClick={handleSaveProject}
+                disabled={isLoading || !currentProject}
+                className={`w-full ${hasUnsavedChanges ? 'bg-yellow-600 hover:bg-yellow-700' : ''}`}
               >
-                Save Code
+                {hasUnsavedChanges ? 'Save Code ●' : 'Save Code'}
               </Button>
               <Button
-                onClick={handleCompile}
-                disabled={!currentProject || isLoading}
+                onClick={handleCompileProject}
+                disabled={isLoading || !currentProject}
                 className="w-full"
               >
                 Compile
               </Button>
               <Button
-                onClick={handleDeploy}
-                disabled={!currentProject || isLoading}
+                onClick={handleDeployProject}
+                disabled={isLoading || !currentProject}
                 className="w-full"
               >
                 Deploy
               </Button>
               <Button
-                onClick={handleTest}
-                disabled={!currentProject || isLoading}
+                onClick={handleTestProject}
+                disabled={isLoading || !currentProject}
                 className="w-full"
               >
                 Test
               </Button>
             </div>
           </Card>
+
+          {/* Function Tests - Only show if project is deployed */}
+          {currentProject && currentProject.deployed && (
+            <Card className="m-4 p-4">
+              <h3 className="text-lg font-semibold mb-3">Test Functions</h3>
+              <div className="space-y-2">
+                <Button
+                  onClick={testGetMessage}
+                  disabled={isLoading}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  Test getMessage()
+                </Button>
+                <Button
+                  onClick={testGreet}
+                  disabled={isLoading}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  Test greet()
+                </Button>
+                <Button
+                  onClick={testWhoami}
+                  disabled={isLoading}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                >
+                  Test whoami()
+                </Button>
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* Main Content */}
@@ -317,7 +333,7 @@ export function whoami() {
           <div className="flex-1">
             <Editor
               height="100%"
-              language={getCurrentConfig().monacoLanguage}
+              language={selectedLanguage}
               value={code}
               onChange={(value) => setCode(value || "")}
               theme="vs-dark"
@@ -328,60 +344,21 @@ export function whoami() {
                 roundedSelection: false,
                 scrollBeyondLastLine: false,
                 automaticLayout: true,
-                tabSize: 2,
-                insertSpaces: true,
-                wordWrap: "on",
-                folding: true,
-                bracketPairColorization: { enabled: true },
-                guides: {
-                  bracketPairs: true,
-                  indentation: true,
-                },
               }}
             />
           </div>
 
-          {/* Terminal Toggle */}
-          <div className="bg-gray-800 border-t border-gray-700 p-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setShowTerminal(!showTerminal)}
-                  className="flex items-center space-x-2 px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm"
-                >
-                  <span>{showTerminal ? '▼' : '▲'}</span>
-                  <span>Terminal</span>
-                </button>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-400">Height:</span>
-                  <select
-                    value={terminalHeight}
-                    onChange={(e) => setTerminalHeight(e.target.value)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs"
-                  >
-                    <option value="200px">Small</option>
-                    <option value="300px">Medium</option>
-                    <option value="400px">Large</option>
-                  </select>
-                </div>
-              </div>
-              <button
-                onClick={clearTerminal}
-                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-
           {/* Terminal */}
-          {showTerminal && (
-            <div className="border-t border-gray-700">
-              <Terminal height={terminalHeight} />
-            </div>
-          )}
+          <div className="border-t border-gray-700">
+            <Terminal
+              output={terminalOutput}
+              onHeightChange={handleTerminalHeightChange}
+              onClear={handleClearTerminal}
+            />
+          </div>
         </div>
       </div>
+
       {/* Compilation Results Modal */}
       {showCompilationResults && (
         <CompilationResults

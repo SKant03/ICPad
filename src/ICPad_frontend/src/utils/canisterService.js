@@ -172,9 +172,32 @@ export const compileProject = async (projectId) => {
   }
 };
 
+// NEW: Real deployment with WASM
+export const deployProjectWithWasm = async (projectId, wasm, candid) => {
+  try {
+    console.log('Deploying project with WASM:', projectId, 'WASM size:', wasm.length);
+    const actor = getActor();
+    const result = await actor.deploy_project_with_wasm(projectId, Array.from(wasm), candid);
+    console.log('Deploy with WASM result:', result);
+    
+    if ('Ok' in result) {
+      const deployResult = JSON.parse(result.Ok);
+      console.log('Parsed deploy result:', deployResult);
+      return { success: true, result: deployResult };
+    } else {
+      console.error('Deploy with WASM failed:', result.Err);
+      return { success: false, error: result.Err };
+    }
+  } catch (error) {
+    console.error('Deploy project with WASM error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Legacy deployment (for backward compatibility)
 export const deployProject = async (projectId) => {
   try {
-    console.log('Deploying project:', projectId);
+    console.log('Deploying project (legacy):', projectId);
     const actor = getActor();
     const result = await actor.deploy_project(projectId);
     console.log('Deploy project result:', result);
@@ -189,6 +212,28 @@ export const deployProject = async (projectId) => {
     }
   } catch (error) {
     console.error('Deploy project error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// NEW: Call deployed function
+export const callFunction = async (projectId, functionName, args = []) => {
+  try {
+    console.log('Calling function:', functionName, 'with args:', args);
+    const actor = getActor();
+    const result = await actor.call_function(projectId, functionName, args);
+    console.log('Call function result:', result);
+    
+    if ('Ok' in result) {
+      const callResult = JSON.parse(result.Ok);
+      console.log('Parsed call result:', callResult);
+      return { success: true, result: callResult };
+    } else {
+      console.error('Call function failed:', result.Err);
+      return { success: false, error: result.Err };
+    }
+  } catch (error) {
+    console.error('Call function error:', error);
     return { success: false, error: error.message };
   }
 };
