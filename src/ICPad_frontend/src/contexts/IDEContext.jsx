@@ -26,7 +26,9 @@ export const IDEProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [terminalOutput, setTerminalOutput] = useState([]);
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState('// Welcome to ICPad IDE\n// Create a new project or load an existing one\n// Use the terminal below for commands');
+  const [compilationResult, setCompilationResult] = useState(null);
+  const [showCompilationResults, setShowCompilationResults] = useState(false);
 
   // Check canister connection on mount
   useEffect(() => {
@@ -78,6 +80,8 @@ export const IDEProvider = ({ children }) => {
       if (result.success) {
         addTerminalOutput(`✅ Project created successfully! ID: ${result.projectId}`);
         await loadProjects(); // Refresh project list
+        // Auto-load the newly created project
+        await loadProject(result.projectId);
         return result.projectId;
       } else {
         addTerminalOutput('❌ Failed to create project: ' + result.error);
@@ -100,12 +104,10 @@ export const IDEProvider = ({ children }) => {
       const result = await getProject(projectId);
       console.log('Project load result:', result);
       if (result.success && result.project) {
-        // Fix: handle array case
-        const projectObj = Array.isArray(result.project) ? result.project[0] : result.project;
-        console.log('Setting current project:', projectObj);
-        setCurrentProject(projectObj);
-        setCode(projectObj.code);
-        addTerminalOutput(`✅ Project loaded: ${projectObj.name}`);
+        console.log('Setting current project:', result.project);
+        setCurrentProject(result.project);
+        setCode(result.project.code || '');
+        addTerminalOutput(`✅ Project loaded: ${result.project.name}`);
       } else {
         addTerminalOutput('❌ Failed to load project: ' + (result.error || 'Project not found'));
       }
@@ -154,9 +156,19 @@ export const IDEProvider = ({ children }) => {
       const result = await compileProject(currentProject.id);
       if (result.success) {
         const compileResult = result.result;
+        setCompilationResult(compileResult);
+        setShowCompilationResults(true);
+        
         if (compileResult.success) {
           addTerminalOutput('✅ Compilation successful!');
           addTerminalOutput(compileResult.output);
+          
+          if (compileResult.wasm) {
+            addTerminalOutput(`📦 Generated WASM: ${compileResult.wasm.length} bytes`);
+          }
+          if (compileResult.candid) {
+            addTerminalOutput(`📄 Generated Candid interface`);
+          }
         } else {
           addTerminalOutput('❌ Compilation failed!');
           addTerminalOutput(compileResult.output);
@@ -244,6 +256,11 @@ export const IDEProvider = ({ children }) => {
     setTerminalOutput([]);
   };
 
+  const closeCompilationResults = () => {
+    setShowCompilationResults(false);
+    setCompilationResult(null);
+  };
+
   const value = {
     currentProject,
     projects,
@@ -261,7 +278,10 @@ export const IDEProvider = ({ children }) => {
     addTerminalOutput,
     clearTerminal,
     loadProjects,
-    checkConnection
+    checkConnection,
+    compilationResult,
+    showCompilationResults,
+    closeCompilationResults
   };
 
   return (
@@ -269,4 +289,4 @@ export const IDEProvider = ({ children }) => {
       {children}
     </IDEContext.Provider>
   );
-}; 
+};

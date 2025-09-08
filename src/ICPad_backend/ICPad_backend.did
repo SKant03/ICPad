@@ -1,5 +1,24 @@
 type Result = variant { Ok : text; Err : text };
+
 service : {
-  start_docker_session : (text) -> (Result);
-  stop_docker_session : (text) -> (Result);
+    // Docker session management
+    start_docker_session : (text) -> (Result);
+    stop_docker_session : (text) -> (Result);
+    
+    // Project management
+    create_project : (text, text, text) -> (Result);
+    get_project : (text) -> (Result);
+    list_projects : () -> (Result);
+    update_project_code : (text, text) -> (Result);
+    
+    // Development operations
+    compile_project : (text) -> (Result);
+    deploy_project : (text) -> (Result);
+    test_project : (text, text) -> (Result);
+    
+    // Terminal commands
+    execute_terminal_command : (text, opt text) -> (Result);
+    
+    // Connection check
+    check_connection : () -> (Result);
 }
