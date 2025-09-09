@@ -1,186 +1,328 @@
-import { Actor, HttpAgent } from '@dfinity/agent';
-import { idlFactory } from '../../../declarations/ICPad_backend/ICPad_backend.did.js';
+import { Actor, HttpAgent } from "@dfinity/agent";
+import { idlFactory } from "../../../declarations/ICPad_backend/ICPad_backend.did.js";
+import MotokoCompiler from "./motokoCompiler";
 
-// Initialize the agent
-const agent = new HttpAgent({
-  host: 'http://localhost:4943', // Always use localhost for local development
+const agent = new HttpAgent({ 
+  host: "http://127.0.0.1:4943",
+  verifyQuerySignatures: false 
 });
 
-// For local development, we need to fetch the root key
-agent.fetchRootKey().catch(console.error);
+// Fetch root key for certificate validation during development
+if (process.env.DFX_NETWORK !== "ic") {
+  agent.fetchRootKey().catch((err) => {
+    console.warn("Unable to fetch root key. Check to ensure that your local replica is running");
+    console.error(err);
+  });
+}
+
+const motokoCompiler = new MotokoCompiler();
+
+// Get canister ID with fallback
+const getCanisterId = () => {
+  // Try multiple ways to get the canister ID
+  if (typeof process !== 'undefined' && process.env && process.env.CANISTER_ID_ICPAD_BACKEND) {
+    return process.env.CANISTER_ID_ICPAD_BACKEND;
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    // Try to get from URL or other sources
+    const urlParams = new URLSearchParams(window.location.search);
+    const canisterId = urlParams.get('canisterId');
+    if (canisterId) return canisterId;
+  }
+  // Fallback to hardcoded canister ID
+  return "uxrrr-q7777-77774-qaaaq-cai";
+};
 
 // Initialize the actor
-let actor = null;
+let ICPad_backend_actor = null;
 
-export const initializeActor = async () => {
-  if (!actor) {
-    // For local development, we need to fetch the root key
-    await agent.fetchRootKey().catch(console.error);
-    
-    // Use the current backend canister ID
-    const canisterId = 'uxrrr-q7777-77774-qaaaq-cai';
-    
-    actor = Actor.createActor(idlFactory, {
-      agent,
-      canisterId: canisterId,
-    });
+const getActor = () => {
+  if (!ICPad_backend_actor) {
+    try {
+      const canisterId = getCanisterId();
+      console.log('Creating actor with canister ID:', canisterId);
+      console.log('IDL Factory:', idlFactory);
+      
+      ICPad_backend_actor = Actor.createActor(idlFactory, {
+        agent,
+        canisterId: canisterId,
+      });
+      
+      console.log('Actor created successfully');
+    } catch (error) {
+      console.error('Failed to create actor:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      throw error;
+    }
   }
-  return actor;
+  return ICPad_backend_actor;
 };
 
 // Project management functions
 export const createProject = async (name, language, initialCode) => {
   try {
-    const actor = await initializeActor();
-    const projectId = await actor.create_project(name, language, initialCode);
-    return { success: true, projectId };
+    console.log('Creating project:', { name, language, initialCode });
+    const actor = getActor();
+    const result = await actor.create_project(name, language, initialCode);
+    console.log('Create project result:', result);
+    
+    if ('Ok' in result) {
+      return { success: true, projectId: result.Ok };
+    } else {
+      return { success: false, error: result.Err };
+    }
   } catch (error) {
-    console.error('Error creating project:', error);
+    console.error('Create project error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return { success: false, error: error.message };
   }
 };
 
 export const getProject = async (projectId) => {
   try {
-    const actor = await initializeActor();
-    const project = await actor.get_project(projectId);
-    return { success: true, project };
+    console.log('Getting project:', projectId);
+    const actor = getActor();
+    const result = await actor.get_project(projectId);
+    console.log('Get project result:', result);
+    
+    if ('Ok' in result) {
+      return { success: true, project: JSON.parse(result.Ok) };
+    } else {
+      return { success: false, error: result.Err };
+    }
   } catch (error) {
-    console.error('Error getting project:', error);
+    console.error('Get project error:', error);
     return { success: false, error: error.message };
   }
 };
 
 export const listProjects = async () => {
   try {
-    const actor = await initializeActor();
-    const projects = await actor.list_projects();
-    return { success: true, projects };
+    console.log('Listing projects...');
+    const actor = getActor();
+    const result = await actor.list_projects();
+    console.log('List projects result:', result);
+    
+    if ('Ok' in result) {
+      return { success: true, projects: JSON.parse(result.Ok) };
+    } else {
+      return { success: false, error: result.Err };
+    }
   } catch (error) {
-    console.error('Error listing projects:', error);
+    console.error('List projects error:', error);
     return { success: false, error: error.message };
   }
 };
 
-export const updateProjectCode = async (projectId, code) => {
+export const updateProjectCode = async (projectId, newCode) => {
   try {
-    const actor = await initializeActor();
-    const success = await actor.update_project_code(projectId, code);
-    return { success };
+    const actor = getActor();
+    const result = await actor.update_project_code(projectId, newCode);
+    if ('Ok' in result) {
+      return { success: true };
+    } else {
+      return { success: false, error: result.Err };
+    }
   } catch (error) {
-    console.error('Error updating project code:', error);
+    console.error('Update project error:', error);
     return { success: false, error: error.message };
   }
 };
 
+// Development operations
 export const compileProject = async (projectId) => {
   try {
-    const actor = await initializeActor();
+    // First get the project to check its language
+    const projectResult = await getProject(projectId);
+    if (!projectResult.success) {
+      return { success: false, error: projectResult.error };
+    }
+    
+    const project = projectResult.project;
+    console.log('Compiling project:', project.name, 'Language:', project.language);
+    
+    // Handle Motoko projects with frontend compiler
+    if (project.language === 'motoko') {
+      console.log('Using frontend Motoko compiler...');
+      const compileResult = await motokoCompiler.compile(project.code);
+      console.log('Motoko compilation result:', compileResult);
+      return { success: true, result: compileResult };
+    }
+    
+    // For other languages, use backend compilation
+    console.log('Using backend compiler for:', project.language);
+    const actor = getActor();
     const result = await actor.compile_project(projectId);
-    return { success: true, result };
+    if ('Ok' in result) {
+      return { success: true, result: result.Ok };
+    } else {
+      return { success: false, error: result.Err };
+    }
   } catch (error) {
-    console.error('Error compiling project:', error);
+    console.error('Compile project error:', error);
     return { success: false, error: error.message };
   }
 };
 
+// NEW: Real deployment with WASM
+export const deployProjectWithWasm = async (projectId, wasm, candid) => {
+  try {
+    console.log('Deploying project with WASM:', projectId, 'WASM size:', wasm.length);
+    const actor = getActor();
+    const result = await actor.deploy_project_with_wasm(projectId, Array.from(wasm), candid);
+    console.log('Deploy with WASM result:', result);
+    
+    if ('Ok' in result) {
+      const deployResult = JSON.parse(result.Ok);
+      console.log('Parsed deploy result:', deployResult);
+      return { success: true, result: deployResult };
+    } else {
+      console.error('Deploy with WASM failed:', result.Err);
+      return { success: false, error: result.Err };
+    }
+  } catch (error) {
+    console.error('Deploy project with WASM error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Legacy deployment (for backward compatibility)
 export const deployProject = async (projectId) => {
   try {
-    const actor = await initializeActor();
+    console.log('Deploying project (legacy):', projectId);
+    const actor = getActor();
     const result = await actor.deploy_project(projectId);
-    return { success: true, result };
+    console.log('Deploy project result:', result);
+    
+    if ('Ok' in result) {
+      const deployResult = JSON.parse(result.Ok);
+      console.log('Parsed deploy result:', deployResult);
+      return { success: true, result: deployResult };
+    } else {
+      console.error('Deploy failed:', result.Err);
+      return { success: false, error: result.Err };
+    }
   } catch (error) {
-    console.error('Error deploying project:', error);
+    console.error('Deploy project error:', error);
     return { success: false, error: error.message };
   }
 };
 
-export const testProject = async (projectId, testInput) => {
+// NEW: Call deployed function
+export const callFunction = async (projectId, functionName, args = []) => {
   try {
-    const actor = await initializeActor();
-    const result = await actor.test_project(projectId, testInput);
-    return { success: true, result };
+    console.log('Calling function:', functionName, 'with args:', args);
+    const actor = getActor();
+    const result = await actor.call_function(projectId, functionName, args);
+    console.log('Call function result:', result);
+    
+    if ('Ok' in result) {
+      const callResult = JSON.parse(result.Ok);
+      console.log('Parsed call result:', callResult);
+      return { success: true, result: callResult };
+    } else {
+      console.error('Call function failed:', result.Err);
+      return { success: false, error: result.Err };
+    }
   } catch (error) {
-    console.error('Error testing project:', error);
+    console.error('Call function error:', error);
     return { success: false, error: error.message };
   }
 };
 
-// Utility function to check if we're connected to the canister
+export const testProject = async (projectId, testCode) => {
+  try {
+    const actor = getActor();
+    const result = await actor.test_project(projectId, testCode);
+    if ('Ok' in result) {
+      return { success: true, result: result.Ok };
+    } else {
+      return { success: false, error: result.Err };
+    }
+  } catch (error) {
+    console.error('Test project error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Connection check
 export const checkCanisterConnection = async () => {
   try {
-    const actor = await initializeActor();
-    const result = await actor.greet('test');
-    return { connected: true, success: true };
+    const actor = getActor();
+    const result = await actor.check_connection();
+    if ('Ok' in result) {
+      return { success: true, connected: result.Ok === "true" };
+    } else {
+      return { success: false, error: result.Err };
+    }
   } catch (error) {
-    console.error('Error checking canister connection:', error);
-    return { connected: false, success: false, error: error.message };
-  }
-};
-
-// Marketplace functions
-export const listTemplates = async () => {
-  try {
-    const actor = await initializeActor();
-    const templates = await actor.list_templates();
-    return { success: true, templates };
-  } catch (error) {
-    console.error('Error listing templates:', error);
+    console.error('Check connection error:', error);
     return { success: false, error: error.message };
   }
 };
 
-export const getTemplate = async (templateId) => {
+// Terminal commands
+export const executeTerminalCommand = async (command, workingDir = null) => {
   try {
-    const actor = await initializeActor();
-    const template = await actor.get_template(templateId);
-    return { success: true, template };
+    const actor = getActor();
+    const result = await actor.execute_terminal_command(command, workingDir);
+    if ('Ok' in result) {
+      return { success: true, output: result.Ok };
+    } else {
+      return { success: false, error: result.Err };
+    }
   } catch (error) {
-    console.error('Error getting template:', error);
+    console.error('Execute terminal command error:', error);
     return { success: false, error: error.message };
   }
 };
 
-export const createTemplate = async (name, description, category, language, code) => {
+// Docker session management
+export const startDockerSession = async (sessionId) => {
   try {
-    const actor = await initializeActor();
-    const templateId = await actor.create_template(name, description, category, language, code);
-    return { success: true, templateId };
+    const actor = getActor();
+    const result = await actor.start_docker_session(sessionId);
+    if ('Ok' in result) {
+      return { success: true, result: result.Ok };
+    } else {
+      return { success: false, error: result.Err };
+    }
   } catch (error) {
-    console.error('Error creating template:', error);
+    console.error('Start docker session error:', error);
     return { success: false, error: error.message };
   }
 };
 
-export const installTemplate = async (templateId) => {
+export const stopDockerSession = async (sessionId) => {
   try {
-    const actor = await initializeActor();
-    const projectId = await actor.install_template(templateId);
-    return { success: true, projectId };
+    const actor = getActor();
+    const result = await actor.stop_docker_session(sessionId);
+    if ('Ok' in result) {
+      return { success: true, result: result.Ok };
+    } else {
+      return { success: false, error: result.Err };
+    }
   } catch (error) {
-    console.error('Error installing template:', error);
+    console.error('Stop docker session error:', error);
     return { success: false, error: error.message };
   }
 };
 
-export const rateTemplate = async (templateId, rating) => {
+// Motoko compilation
+export const compileMotoko = async (code) => {
   try {
-    const actor = await initializeActor();
-    const success = await actor.rate_template(templateId, rating);
-    return { success };
+    const result = await motokoCompiler.compile(code);
+    return { success: true, result };
   } catch (error) {
-    console.error('Error rating template:', error);
+    console.error('Compile Motoko error:', error);
     return { success: false, error: error.message };
   }
 };
-
-export const downloadTemplate = async (templateId) => {
-  try {
-    const actor = await initializeActor();
-    const success = await actor.download_template(templateId);
-    return { success };
-  } catch (error) {
-    console.error('Error downloading template:', error);
-    return { success: false, error: error.message };
-  }
-}; 

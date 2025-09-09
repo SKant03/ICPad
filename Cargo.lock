@@ -7,10 +7,10 @@ name = "ICPad_backend"
 version = "0.1.0"
 dependencies = [
  "candid",
+ "hex",
  "ic-cdk",
  "ic-cdk-macros",
  "ic-cdk-timers",
- "ic-management-canister-types",
  "num-traits",
  "serde",
  "serde_json",

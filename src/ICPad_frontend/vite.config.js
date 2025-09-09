@@ -7,6 +7,7 @@ import react from '@vitejs/plugin-react';
 dotenv.config({ path: '../../.env' });
 
 export default defineConfig({
+  base: './',
   build: {
     emptyOutDir: true,
   },
@@ -25,7 +26,7 @@ export default defineConfig({
       },
     },
   },
-  publicDir: "assets",
+  publicDir: "public",
   plugins: [
     environment("all", { prefix: "CANISTER_" }),
     environment("all", { prefix: "DFX_" }),
@@ -42,4 +43,5 @@ export default defineConfig({
     ],
     dedupe: ['@dfinity/agent'],
   },
+  assetsInclude: ['**/*.wasm'],
 });

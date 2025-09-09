@@ -2,16 +2,14 @@
 import React, { useState, useContext } from "react";
 import { Link } from "react-router-dom";
 import { useTheme } from "../contexts/ThemeContext";
-import { PrincipalContext } from "../contexts/PrincipalContext"; // ✅ import your context
+import { PrincipalContext } from "../contexts/PrincipalContext";
 import { LayoutDashboard, Code, Store, Rocket } from "../utils/Icons.jsx";
-import { User, Sun, Moon } from "lucide-react"; // ✅ added Sun/Moon
-import { AuthClient } from "@dfinity/auth-client";
+import { User, Sun, Moon } from "lucide-react";
 
 const Navbar = () => {
   const { isDarkMode, toggleTheme } = useTheme();
-  const { principal, setPrincipal } = useContext(PrincipalContext); // ✅ use global principal
+  const { principal, isAuthenticated, login, logout } = useContext(PrincipalContext);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(!!principal);
   const [isOpen, setIsOpen] = useState(false);
 
   const bgColor = isDarkMode ? "bg-[#3A2E39]" : "bg-[#F4D8CD]";
@@ -24,36 +22,14 @@ const Navbar = () => {
     { name: "Deploy", path: "/deploy", icon: Rocket },
   ];
 
-  // 🔑 Sign-in
-  const signIn = async () => {
-    try {
-      const authClient = await AuthClient.create();
-      await authClient.login({
-        identityProvider: "https://identity.ic0.app/#authorize",
-        onSuccess: async () => {
-          const identity = authClient.getIdentity();
-          const principalText = identity.getPrincipal().toText();
-          setPrincipal(principalText); // ✅ save globally
-          setIsAuthenticated(true);
-          setIsOpen(false);
-        },
-      });
-    } catch (err) {
-      console.error("Sign in failed:", err);
-    }
+  const handleSignIn = async () => {
+    await login();
+    setIsOpen(false);
   };
 
-  // 🚪 Sign-out
-  const signOut = async () => {
-    try {
-      const authClient = await AuthClient.create();
-      await authClient.logout();
-      setPrincipal(null); // ✅ clear globally
-      setIsAuthenticated(false);
-      setIsOpen(false);
-    } catch (err) {
-      console.error("Sign out failed:", err);
-    }
+  const handleSignOut = async () => {
+    await logout();
+    setIsOpen(false);
   };
 
   return (
@@ -128,7 +104,7 @@ const Navbar = () => {
                         </div>
                       </div>
                       <button
-                        onClick={signOut}
+                        onClick={handleSignOut}
                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                       >
                         Sign Out
@@ -136,7 +112,7 @@ const Navbar = () => {
                     </>
                   ) : (
                     <button
-                      onClick={signIn}
+                      onClick={handleSignIn}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                     >
                       Sign In
