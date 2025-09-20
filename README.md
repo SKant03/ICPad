@@ -1,53 +1,86 @@
-# ICPad - Internet Computer Development Platform
+# 💻 ICPad - Internet Computer Development Platform
 
-A modern, web-based IDE and development platform for building decentralized applications (dApps) on the Internet Computer (IC) blockchain.
+A **modern, web-based IDE and development platform** for building decentralized applications (**dApps**) on the **Internet Computer (IC)** blockchain.
+
+---
 
 ## 🚀 Overview
 
-ICPad is a comprehensive development environment that combines a modern React-based UI with Internet Computer canister deployment capabilities. It provides developers with an intuitive interface for creating, testing, and deploying dApps on the IC network.
+ICPad is a comprehensive development environment that combines a modern **React-based UI** with **Internet Computer canister deployment capabilities**.  
+It provides developers with an intuitive interface for creating, testing, and deploying dApps on the IC network.
+
+---
 
 ## ✨ Features
 
-- **Modern Web IDE** - React-based interface with syntax highlighting and real-time editing
-- **Canister Management** - Deploy and manage Internet Computer canisters
-- **Template Marketplace** - Browse and use pre-built canister templates
-- **Multi-Network Support** - Deploy to local, testnet, and mainnet networks
-- **Dark/Light Theme** - Customizable UI themes for better development experience
-- **Real-time Terminal** - Integrated terminal for deployment and debugging
+- 🖊 **Modern Web IDE** – React-based interface with syntax highlighting and real-time editing  
+- 🛠 **Canister Management** – Deploy and manage Internet Computer canisters  
+- 📦 **Template Marketplace** – Browse and use pre-built canister templates  
+- 🌐 **Multi-Network Support** – Deploy to local, testnet, and mainnet networks  
+- 🌓 **Dark/Light Theme** – Customizable UI themes for better dev experience  
+- 🖥 **Real-time Terminal** – Integrated terminal for deployment and debugging  
+
+---
 
 ## 🏗️ Architecture
 
-### Frontend (React + Vite)
-- **Framework**: React 18 with React Router
-- **Build Tool**: Vite for fast development and building
-- **Styling**: Tailwind CSS with custom theme system
-- **State Management**: React Context for theme management
+### 🔹 Frontend (React + Vite)
+- Framework: React 18 with React Router  
+- Build Tool: Vite for fast development and building  
+- Styling: Tailwind CSS with custom theme system  
+- State Management: React Context for theme management  
 
-### Backend (Rust + Internet Computer)
-- **Language**: Rust with IC CDK
-- **Canister Type**: Rust canister for backend logic
-- **Interface**: Candid for type-safe communication
+### 🔹 Backend (Rust + Internet Computer)
+- Language: Rust with IC CDK  
+- Canister Type: Rust canister for backend logic  
+- Interface: Candid for type-safe communication
 
-### Project Structure
-```
-ICPad/
+### External Server / Docker Controller
+- A separate backend service that manages isolated Docker containers for code execution and session orchestration.
+- Repository: [ICP Docker Controller](https://github.com/SKant03/ICP-docker-controller-and-docker-image)
+
+
+---
+
+## 📂 Project Structure
+
+
+```ICPad/
 ├── src/
-│   ├── ICPad_frontend/          # React frontend application
-│   │   ├── src/
-│   │   │   ├── Pages/           # Main application pages
-│   │   │   ├── components/      # Reusable UI components
-│   │   │   ├── contexts/        # React contexts
-│   │   │   └── utils/           # Utility functions
-│   │   ├── dist/                # Built frontend assets
-│   │   └── package.json         # Frontend dependencies
-│   ├── ICPad_backend/           # Rust backend canister
-│   │   ├── src/
-│   │   │   └── lib.rs           # Main canister logic
-│   │   └── ICPad_backend.did    # Candid interface
-│   └── declarations/            # Generated canister bindings
-├── dfx.json                     # DFX configuration
-├── package.json                 # Root package configuration
-└── Cargo.toml                   # Rust dependencies
+│   ├── ICPad_backend/         # Rust backend canister (core logic, DFS, code handling)
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       └── lib.rs
+│   │
+│   ├── ICPad_frontend/        # React/Next.js frontend (UI for the IDE)
+│   │   ├── package.json
+│   │   ├── public/
+│   │   └── src/
+│   │       ├── components/
+│   │       ├── pages/
+│   │       └── styles/
+│   │
+│   ├── ICPad_user/            # User management canister (auth, profiles, permissions)
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       └── lib.rs
+│   │
+│   ├── ICPad_marketplace/     # Marketplace canister (template/code sharing, future tokens)
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       └── lib.rs
+│   │
+│   ├── ICPad_rustfrontend/    # Rust-based frontend canister (alt frontend for WASM delivery)
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       └── lib.rs
+│
+├── dfx.json                   # Internet Computer project configuration
+├── package.json               # Root-level package dependencies
+├── tsconfig.json              # TypeScript configuration (if present)
+├── Cargo.lock                 # Rust lockfile
+├── README.md                  # Project documentation
+
 ```
 
 ## 🛠️ Prerequisites
