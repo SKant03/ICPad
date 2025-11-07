@@ -1,90 +1,99 @@
-use candid::CandidType;
-use ic_cdk::update;
-use ic_cdk::management_canister::http_request;
-use ic_management_canister_types::{HttpRequestArgs, HttpHeader, HttpMethod, HttpRequestResult};
-use serde::Deserialize;
-use num_traits::ToPrimitive;
-use std::time::Duration;
-use ic_cdk_timers::set_timer;
+use candid::{CandidType, Deserialize};
+use ic_cdk::management_canister::{
+    http_request, HttpHeader, HttpMethod, HttpRequestArgs, HttpResponse, TransformArgs,
+    TransformContext,
+};
+use ic_cdk_macros::*;
+use serde::Serialize;
 
-// ✅ Define your ngrok/off-chain controller URL once here
-const DOCKER_CONTROLLER_URL: &str = "https://fdbe92cd247b.ngrok-free.app";
+const CONTROLLER_URL: &str = "https://<YOUR_NGROK_URL>.ngrok-free.app"; // replace with ngrok link
 
-#[derive(CandidType, Deserialize)]
-struct SessionResponse {
-    container_id: String,
-    editor_url: String,
+#[derive(Debug, Serialize, Deserialize, CandidType)]
+struct FileRequest {
+    filename: String,
+    content: Option<String>,
 }
 
-#[update]
-async fn start_docker_session(user_id: String) -> Result<String, String> {
-    let payload = format!(
-        r#"{{"project_id":"test_project","user_id":"{}"}}"#,
-        user_id
-    );
+#[derive(Debug, Serialize, Deserialize, CandidType)]
+struct FileResponse {
+    message: String,
+}
 
-    let req = HttpRequestArgs {
-        url: format!("{}/start", DOCKER_CONTROLLER_URL), // 🔥 Reuse constant
-        max_response_bytes: Some(2000),
+// A transform function to strip headers (required for IC outcalls)
+#[query]
+fn transform(resp: TransformArgs) -> HttpResponse {
+    HttpResponse {
+        status: resp.response.status,
+        body: resp.response.body,
+        headers: vec![], // strip headers for determinism
+    }
+}
+
+async fn call_server(endpoint: &str, payload: &FileRequest) -> Result<String, String> {
+    let url = format!("{}/{}", CONTROLLER_URL, endpoint);
+
+    let body = serde_json::to_vec(payload).map_err(|e| e.to_string())?;
+
+    let request = HttpRequestArgs {
+        url,
         method: HttpMethod::POST,
         headers: vec![HttpHeader {
             name: "Content-Type".to_string(),
             value: "application/json".to_string(),
         }],
-        body: Some(payload.into_bytes()),
-        transform: None,
+        body: Some(body),
+        max_response_bytes: Some(2_000_000),
+        transform: Some(TransformContext::new(transform, vec![])), // references transform query
     };
 
-    match http_request(&req).await {
-        Ok(HttpRequestResult { status, body, .. }) => {
-            if status.0.to_u64().unwrap_or(0) != 200 {
-                return Err(format!("Non-200 status code: {}", status));
+    let cycles = 2_000_000_000; // attach cycles for outcall
+    match http_request(request, cycles).await {
+        Ok((response,)) => {
+            let body = String::from_utf8(response.body).unwrap_or_default();
+            let parsed: Result<FileResponse, _> = serde_json::from_str(&body);
+            match parsed {
+                Ok(res) => Ok(res.message),
+                Err(_) => Ok(body), // fallback: return raw body
             }
-
-            let body_str = String::from_utf8_lossy(&body);
-            let session: SessionResponse =
-                serde_json::from_str(&body_str).map_err(|e| format!("JSON parse error: {}", e))?;
-
-            let container_id = session.container_id.clone();
-
-            // Schedule auto-stop after 5 minutes
-            set_timer(Duration::from_secs(5 * 60), move || {
-                ic_cdk::spawn(async move {
-                    let _ = stop_docker_session(container_id.clone()).await;
-                });
-            });
-
-            Ok(session.editor_url)
         }
-        Err(err) => Err(format!("HTTP call failed: {:?}", err)),
+        Err((code, msg)) => Err(format!("HTTP error {:?}: {}", code, msg)),
     }
 }
 
 #[update]
-async fn stop_docker_session(container_id: String) -> Result<String, String> {
-    let payload = format!(r#"{{"container_id":"{}"}}"#, container_id);
+async fn createFile(filename: String) -> Result<String, String> {
+    call_server("start", &FileRequest { filename, content: None }).await
+}
 
-    let req = HttpRequestArgs {
-        url: format!("{}/stop", DOCKER_CONTROLLER_URL), // 🔥 Reuse constant
-        max_response_bytes: Some(2000),
-        method: HttpMethod::POST,
-        headers: vec![HttpHeader {
-            name: "Content-Type".to_string(),
-            value: "application/json".to_string(),
-        }],
-        body: Some(payload.into_bytes()),
-        transform: None,
-    };
+#[update]
+async fn saveFile(filename: String, content: String) -> Result<String, String> {
+    call_server(
+        "write",
+        &FileRequest {
+            filename,
+            content: Some(content),
+        },
+    )
+    .await
+}
 
-    match http_request(&req).await {
-        Ok(HttpRequestResult { status, body, .. }) => {
-            if status.0.to_u64().unwrap_or(0) != 200 {
-                return Err(format!("Non-200 status code: {}", status));
-            }
-            Ok("Container stopped successfully".to_string())
-        }
-        Err(err) => Err(format!("HTTP call failed: {:?}", err)),
-    }
+#[update]
+async fn deleteFile(filename: String) -> Result<String, String> {
+    call_server("stop", &FileRequest { filename, content: None }).await
+}
+
+#[update]
+async fn readFile(filename: String) -> Result<String, String> {
+    call_server("read", &FileRequest { filename, content: None }).await
+}
+
+#[update]
+async fn renameFile(old_name: String, new_name: String) -> Result<String, String> {
+    let content = readFile(old_name.clone()).await?;
+    createFile(new_name.clone()).await?;
+    saveFile(new_name.clone(), content.clone()).await?;
+    deleteFile(old_name.clone()).await?;
+    Ok(format!("Renamed '{}' → '{}'", old_name, new_name))
 }
 
 ic_cdk::export_candid!();

@@ -3,10 +3,9 @@ import Editor from "@monaco-editor/react";
 import FileExplorer from "../components/FileExplorer";
 import Terminal from "../components/TerminalComponent";
 
-// Import backend microservice (you already created this)
+// Import backend canister
 import { ICPad_backend } from "../../ICPad_backend";
 
-// IDE Page Component
 export default function IDEPage() {
   const editorRef = useRef(null);
 
@@ -30,7 +29,7 @@ export default function IDEPage() {
     setCurrentFile({ path: filePath, content });
   }
 
-  function handleEditorChange(value) {
+  async function handleEditorChange(value) {
     if (currentFile) {
       setFiles((prev) => {
         const updated = { ...prev };
@@ -43,6 +42,84 @@ export default function IDEPage() {
         return updated;
       });
       setCurrentFile((prev) => ({ ...prev, content: value }));
+
+      if (isConnected && containerId) {
+        try {
+          await ICPad_backend.save_file(containerId, currentFile.path, value);
+          console.log("✅ Saved to backend:", currentFile.path);
+        } catch (err) {
+          console.error("❌ Save failed:", err);
+        }
+      }
+    }
+  }
+
+  // ✅ Create new file
+  async function handleNewFile() {
+    const fileName = prompt("Enter new file name (e.g., new.mo)");
+    if (!fileName) return;
+
+    setFiles((prev) => ({
+      ...prev,
+      src: {
+        ...prev.src,
+        [fileName]: "// new file",
+      },
+    }));
+
+    if (isConnected && containerId) {
+      await ICPad_backend.create_file(containerId, `src/${fileName}`);
+    }
+  }
+
+  // ✅ Create new folder
+  function handleNewFolder() {
+    const folderName = prompt("Enter folder name");
+    if (!folderName) return;
+    setFiles((prev) => ({ ...prev, [folderName]: {} }));
+  }
+
+  // ✅ Rename file
+  async function handleRenameFile(oldPath) {
+    const newName = prompt("Enter new name", oldPath.split("/").pop());
+    if (!newName) return;
+
+    setFiles((prev) => {
+      const updated = { ...prev };
+      const pathParts = oldPath.split("/");
+      let node = updated;
+      for (let i = 0; i < pathParts.length - 1; i++) {
+        node = node[pathParts[i]];
+      }
+      const content = node[pathParts[pathParts.length - 1]];
+      delete node[pathParts[pathParts.length - 1]];
+      node[newName] = content;
+      return updated;
+    });
+
+    if (isConnected && containerId) {
+      const newPath = oldPath.split("/").slice(0, -1).concat(newName).join("/");
+      await ICPad_backend.rename_file(containerId, oldPath, newPath);
+    }
+  }
+
+  // ✅ Delete file
+  async function handleDeleteFile(filePath) {
+    if (!window.confirm(`Delete ${filePath}?`)) return;
+
+    setFiles((prev) => {
+      const updated = { ...prev };
+      const pathParts = filePath.split("/");
+      let node = updated;
+      for (let i = 0; i < pathParts.length - 1; i++) {
+        node = node[pathParts[i]];
+      }
+      delete node[pathParts[pathParts.length - 1]];
+      return updated;
+    });
+
+    if (isConnected && containerId) {
+      await ICPad_backend.delete_file(containerId, filePath);
     }
   }
 
@@ -50,23 +127,15 @@ export default function IDEPage() {
   async function handleConnect() {
     if (!isConnected) {
       try {
-        // Call backend canister to start Docker session
         const result = await ICPad_backend.start_docker_session("user_123");
-        console.log(result);
 
-        if ("Err" in result) {
-          throw new Error(result.Err);
-        }
+        if ("Err" in result) throw new Error(result.Err);
 
-        const url = result.Ok;
-        setEditorUrl(url);
+        const session = result.Ok;
+        setContainerId(session.container_id);
+        setEditorUrl(session.editor_url);
 
-        // open IDE in new tab (could also embed in iframe)
-        window.open(url, "_blank");
-
-        // For disconnect, we also need the containerId
-        // If your backend returns it, parse and set it here
-        setContainerId("temp-id"); // Replace once backend returns containerId
+        window.open(session.editor_url, "_blank");
         setIsConnected(true);
       } catch (err) {
         console.error("❌ Could not connect:", err);
@@ -76,9 +145,7 @@ export default function IDEPage() {
       try {
         if (containerId) {
           const result = await ICPad_backend.stop_docker_session(containerId);
-          if ("Err" in result) {
-            throw new Error(result.Err);
-          }
+          if ("Err" in result) throw new Error(result.Err);
         }
         setIsConnected(false);
         setContainerId(null);
@@ -124,11 +191,16 @@ export default function IDEPage() {
           <div className="flex justify-between mb-2 text-sm font-semibold">
             <span>Files</span>
             <div className="space-x-1">
-              <button className="px-1 border rounded">+</button>
-              <button className="px-1 border rounded">📂</button>
+              <button onClick={handleNewFile} className="px-1 border rounded">+</button>
+              <button onClick={handleNewFolder} className="px-1 border rounded">📂</button>
             </div>
           </div>
-          <FileExplorer files={files} onFileSelect={handleFileSelect} />
+          <FileExplorer
+            files={files}
+            onFileSelect={handleFileSelect}
+            onRename={handleRenameFile}
+            onDelete={handleDeleteFile}
+          />
         </div>
 
         {/* Code Editor */}

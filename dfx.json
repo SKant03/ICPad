@@ -6,7 +6,10 @@
       ],
       "candid": "src/ICPad_backend/ICPad_backend.did",
       "package": "ICPad_backend",
-      "type": "rust"
+      "type": "rust",
+       "http_request": {
+      "allow": ["https://<YOUR_NGROK_URL>.ngrok-free.app"]
+    }
     },
     "ICPad_frontend": {
       "dependencies": [
